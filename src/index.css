@@ -1,0 +1,579 @@
+@import 'tailwindcss';
+
+/* Output by Antigravity IDE — manual dark mode + RTL for Arabic */
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant rtl (&:where([dir='rtl'], [dir='rtl'] *));
+
+@theme {
+  --color-onyx: #000000;
+  --color-toxic: #36ff97;
+  --color-toxic-dim: #1a8f5a;
+  /* Fixed nav chrome — hero inset clears logo row + safe area (Antigravity IDE layout token) */
+  --nav-stack-h: calc(env(safe-area-inset-top, 0px) + 4.75rem);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
+}
+
+@layer base {
+  /* Forcefully hide all internal scrollbars */
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  *::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Match mesh clears — prevents 1px “flash” seam above fixed canvas in dark mode */
+  html {
+    margin: 0;
+    padding: 0;
+    background-color: #f5faf8;
+    /* Lightweight top offset for fixed nav; avoid scroll snap conflicts. */
+    scroll-padding-top: calc(var(--nav-stack-h, 6rem) - 0.65rem);
+    scroll-padding-bottom: min(5rem, 12dvh);
+    color-scheme: light dark;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: auto;
+    max-width: 100vw;
+    overscroll-behavior-x: none;
+    scroll-behavior: auto;
+  }
+
+  html.dark {
+    background-color: #000000;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100dvh;
+    min-height: 100svh;
+    font-family: var(--font-sans);
+    background-color: #f5faf8;
+    color: #09090b;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: auto;
+    max-width: 100vw;
+    overscroll-behavior-x: none;
+  }
+
+  .dark body {
+    background-color: var(--color-onyx);
+    color: #ffffff;
+  }
+
+  #root {
+    margin: 0;
+    padding: 0;
+    min-height: 100dvh;
+    min-height: 100svh;
+    width: 100%;
+    max-width: none;
+    border: none;
+    text-align: start;
+    overflow: visible !important;
+    max-width: 100vw;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-heading {
+    font-family: var(--font-heading);
+    letter-spacing: -0.03em;
+  }
+
+  body::-webkit-scrollbar {
+    display: block !important;
+  }
+}
+
+@layer utilities {
+  @keyframes gd-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  @keyframes auth-scanline-sweep {
+    0% {
+      background-position: 0 -100px;
+    }
+    100% {
+      background-position: 0 220px;
+    }
+  }
+
+  @keyframes crt-flicker {
+    0%,
+    100% {
+      opacity: 0.16;
+    }
+    35% {
+      opacity: 0.08;
+    }
+    62% {
+      opacity: 0.22;
+    }
+    78% {
+      opacity: 0.1;
+    }
+  }
+
+  @keyframes vault-hv-pulse {
+    0%,
+    100% {
+      box-shadow:
+        0 0 0 0.5px rgba(54, 255, 151, 0.45),
+        0 0 42px -8px rgba(54, 255, 151, 0.95),
+        0 0 120px -40px rgba(54, 255, 151, 0.8);
+    }
+    50% {
+      box-shadow:
+        0 0 0 0.5px rgba(54, 255, 151, 0.65),
+        0 0 64px -6px rgba(54, 255, 151, 1),
+        0 0 150px -35px rgba(54, 255, 151, 0.95);
+    }
+  }
+
+  @keyframes command-aura-drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 0.75;
+    }
+    50% {
+      transform: translate3d(-1.5%, 1.2%, 0) scale(1.05);
+      opacity: 1;
+    }
+  }
+
+  @keyframes command-core-border-pulse {
+    0%,
+    100% {
+      box-shadow:
+        0 0 0 0.5px rgba(54, 255, 151, 0.42),
+        0 0 38px -14px rgba(54, 255, 151, 0.75);
+    }
+    50% {
+      box-shadow:
+        0 0 0 0.5px rgba(54, 255, 151, 0.62),
+        0 0 62px -12px rgba(54, 255, 151, 0.95);
+    }
+  }
+
+  @keyframes electric-border-travel {
+    0% {
+      background-position: 180% 0%;
+    }
+    100% {
+      background-position: -80% 0%;
+    }
+  }
+
+  @keyframes neural-waveform {
+    0%,
+    100% {
+      transform: scaleY(0.55);
+      opacity: 0.55;
+    }
+    50% {
+      transform: scaleY(1.35);
+      opacity: 1;
+    }
+  }
+
+  @keyframes toxic-pulse-hover {
+    0% {
+      box-shadow: 0 0 0 0 rgba(54, 255, 151, 0);
+    }
+    50% {
+      box-shadow:
+        0 0 0 1px rgba(54, 255, 151, 0.3),
+        0 0 28px -6px rgba(54, 255, 151, 0.55);
+    }
+    100% {
+      box-shadow:
+        0 0 0 1px rgba(54, 255, 151, 0.2),
+        0 0 16px -8px rgba(54, 255, 151, 0.3);
+    }
+  }
+
+  @keyframes nav-active-pulse {
+    0%,
+    100% {
+      text-shadow: 0 0 8px rgba(54, 255, 151, 0.28);
+    }
+    50% {
+      text-shadow:
+        0 0 16px rgba(54, 255, 151, 0.55),
+        0 0 24px rgba(54, 255, 151, 0.3);
+    }
+  }
+
+  .gd-skeleton-bar {
+    background: linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.06) 0%,
+      rgba(54, 255, 151, 0.18) 45%,
+      rgba(0, 0, 0, 0.06) 100%
+    );
+    background-size: 200% 100%;
+    animation: gd-shimmer 1.25s ease-in-out infinite;
+  }
+
+  .animate-gd-shimmer {
+    animation: gd-shimmer 2s linear infinite;
+  }
+
+  .btn-primary-toxic {
+    will-change: transform, box-shadow;
+    transition:
+      transform 180ms ease,
+      box-shadow 220ms ease,
+      filter 220ms ease,
+      background-color 220ms ease;
+  }
+
+  .btn-primary-toxic:hover {
+    animation: toxic-pulse-hover 1.4s ease-in-out infinite;
+    filter: saturate(1.06);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary-toxic:active {
+    transform: translateY(0);
+  }
+
+  .auth-scanline {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(54, 255, 151, 0.04) 0px,
+      rgba(54, 255, 151, 0.04) 1px,
+      transparent 2px,
+      transparent 4px
+    );
+    mix-blend-mode: screen;
+    opacity: 0.45;
+    animation: auth-scanline-sweep 5s linear infinite;
+  }
+
+  .auth-neon-input:focus {
+    border-color: rgba(54, 255, 151, 0.95);
+    padding-bottom: 0.75rem;
+    box-shadow:
+      0 10px 30px -18px rgba(54, 255, 151, 0.9),
+      0 0 0 1px rgba(54, 255, 151, 0.35);
+  }
+
+  .nav-active-pulse {
+    animation: nav-active-pulse 1.8s ease-in-out infinite;
+  }
+
+  .vault-hv-pulse {
+    animation: vault-hv-pulse 1.4s ease-in-out infinite;
+  }
+
+  .command-core-border-pulse {
+    animation: command-core-border-pulse 1.8s ease-in-out infinite;
+  }
+
+  .ltr-text {
+    direction: ltr !important;
+    unicode-bidi: bidi-override;
+    display: inline-block;
+  }
+
+  .dark .gd-skeleton-bar {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(54, 255, 151, 0.16) 50%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .snap-pillar {
+    scroll-snap-align: center;
+    scroll-snap-stop: normal;
+  }
+
+  .snap-pillar-hero {
+    scroll-snap-align: start;
+    scroll-snap-stop: normal;
+  }
+
+  .snap-none {
+    scroll-snap-align: none;
+    scroll-margin-bottom: 1.5rem;
+  }
+
+  /* Frozen glass — textures read through high blur (Antigravity IDE glass 2.0) */
+  .glass-card {
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.72) 48%,
+      rgba(248, 252, 250, 0.88) 100%
+    );
+    backdrop-filter: blur(18px) saturate(155%);
+    -webkit-backdrop-filter: blur(18px) saturate(155%);
+    will-change: transform, opacity;
+    isolation: isolate;
+    contain: paint;
+    border: 0.5px solid rgba(54, 255, 151, 0.3);
+    box-shadow:
+      0 0 0 1px rgba(26, 143, 90, 0.08) inset,
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 22px 56px -20px rgba(15, 80, 55, 0.14),
+      0 10px 40px -24px rgba(0, 0, 0, 0.06),
+      0 0 52px -12px rgba(54, 255, 151, 0.22);
+  }
+
+  .dark .glass-card {
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.035) 45%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+    backdrop-filter: blur(20px) saturate(155%);
+    -webkit-backdrop-filter: blur(20px) saturate(155%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+      0 24px 80px -32px rgba(0, 0, 0, 0.85),
+      0 0 60px -20px rgba(54, 255, 151, 0.12);
+  }
+
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(16px) saturate(145%);
+    -webkit-backdrop-filter: blur(16px) saturate(145%);
+    will-change: transform, opacity;
+    isolation: isolate;
+    contain: paint;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.82) inset,
+      0 14px 44px -30px rgba(26, 143, 90, 0.18);
+  }
+
+  .dark .glass-nav {
+    background: rgba(0, 0, 0, 0.58);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 18px 50px -36px rgba(0, 0, 0, 0.65);
+  }
+
+  .section-y {
+    @apply overflow-visible py-28 sm:py-40 lg:py-48;
+  }
+
+  .heading-display {
+    @apply font-heading font-extrabold tracking-tight text-zinc-950 dark:text-white;
+  }
+
+  .toxic-glow-text {
+    text-shadow:
+      0 0 12px rgba(26, 143, 90, 0.55),
+      0 0 40px rgba(54, 255, 151, 0.15);
+  }
+
+  .dark .toxic-glow-text {
+    text-shadow:
+      0 0 42px rgba(54, 255, 151, 0.35),
+      0 0 80px rgba(54, 255, 151, 0.15);
+  }
+
+  /* Hero headline — extra bloom + lift against onyx (filter stacks with toxic-glow-text) */
+  .hero-title-pop {
+    filter: drop-shadow(0 0 28px rgba(54, 255, 151, 0.22)) drop-shadow(0 4px 24px rgba(0, 0, 0, 0.45));
+  }
+
+  .dark .hero-title-pop {
+    filter: drop-shadow(0 0 48px rgba(54, 255, 151, 0.42)) drop-shadow(0 0 100px rgba(54, 255, 151, 0.18))
+      drop-shadow(0 6px 32px rgba(0, 0, 0, 0.65));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-title-pop,
+    .dark .hero-title-pop {
+      filter: none;
+    }
+  }
+
+  /* Section headings — layered toxic neon (dark) / mint silver (light) */
+  .heading-eco-neon {
+    text-shadow:
+      0 0 18px rgba(26, 143, 90, 0.25),
+      0 0 40px rgba(54, 255, 151, 0.12);
+  }
+
+  .dark .heading-eco-neon {
+    text-shadow:
+      0 0 20px rgba(54, 255, 151, 0.45),
+      0 0 52px rgba(54, 255, 151, 0.28),
+      0 0 96px rgba(54, 255, 151, 0.14),
+      0 0 140px rgba(54, 255, 151, 0.06),
+      0 2px 0 rgba(0, 0, 0, 0.85);
+  }
+
+  /* Topographic breathing — global sync with LiquidMesh uOmega (AMBIENT_CYCLE_SEC). */
+  @keyframes topo-breathe-light {
+    0%,
+    100% {
+      opacity: 0.108;
+    }
+    50% {
+      opacity: 0.132;
+    }
+  }
+
+  @keyframes topo-breathe-dark {
+    0%,
+    100% {
+      opacity: 0.078;
+    }
+    50% {
+      opacity: 0.098;
+    }
+  }
+
+  .topo-breathe-will {
+    will-change: opacity;
+  }
+
+  .topo-breathe-light {
+    animation: topo-breathe-light 11s ease-in-out infinite;
+  }
+
+  .topo-breathe-dark {
+    animation: topo-breathe-dark 12s ease-in-out infinite;
+  }
+
+  @keyframes eco-pulse-expand {
+    0% {
+      transform: scale(0.55);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.95;
+    }
+    100% {
+      transform: scale(1.45);
+      opacity: 0;
+    }
+  }
+
+  .eco-pulse-ring {
+    will-change: transform, opacity;
+    animation: eco-pulse-expand 9s ease-out infinite;
+  }
+
+  /* Premium body / label contrast — light mode reads as crisp forest-morning UI */
+  .text-muted-eco {
+    @apply text-zinc-950 dark:text-white/58;
+  }
+
+  .text-label-eco {
+    @apply text-zinc-950 dark:text-white/48;
+  }
+
+  /* Official certificate seals — light authority glow (Antigravity IDE security strip). */
+  .seal-certificate-light .seal-certificate-inner {
+    border-color: rgba(54, 255, 151, 0.55);
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 252, 250, 0.98) 100%);
+    box-shadow:
+      0 0 0 1px rgba(27, 67, 50, 0.12) inset,
+      0 0 0 0.5px rgba(54, 255, 151, 0.35),
+      0 14px 44px -20px rgba(15, 80, 55, 0.18),
+      0 0 40px -8px rgba(54, 255, 151, 0.35);
+  }
+
+  .dark .seal-certificate-light .seal-certificate-inner {
+    border-color: rgba(54, 255, 151, 0.35);
+    background: linear-gradient(165deg, rgba(12, 18, 16, 0.96) 0%, rgba(4, 12, 10, 0.94) 100%);
+    box-shadow:
+      0 0 0 1px rgba(54, 255, 151, 0.12) inset,
+      0 0 32px -10px rgba(54, 255, 151, 0.35),
+      0 18px 48px -28px rgba(0, 0, 0, 0.65);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .eco-pulse-ring {
+      will-change: auto;
+      animation: none !important;
+    }
+
+    .topo-breathe-light,
+    .topo-breathe-dark {
+      animation: none !important;
+    }
+
+    .topo-breathe-will {
+      will-change: auto;
+    }
+  }
+}
+
+/* Google Places Autocomplete dropdown z-index fix */
+.pac-container {
+  z-index: 10000 !important;
+  border-radius: 0.75rem;
+  margin-top: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  font-family: inherit;
+}
+
+.dark .pac-container {
+  background-color: #18181b;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.dark .pac-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e4e4e7;
+  padding: 8px 12px;
+}
+
+.dark .pac-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .pac-item-query {
+  color: white;
+}
+
+.dark .pac-matched {
+  color: #36ff97;
+}
+
+.pac-icon {
+  filter: grayscale(1) invert(1);
+}
+
+.dark .pac-icon {
+  filter: grayscale(1) brightness(2);
+}
+
+/* Priority 1: Protect Google Maps from Tailwind CSS reset conflicts */
+.gm-style img, .gm-style svg {
+  max-width: none !important;
+  height: auto !important;
+}
