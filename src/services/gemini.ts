@@ -257,7 +257,8 @@ export async function sendGeminiMessage(
   const isAr = ctx?.locale === 'ar'
 
   // Prefer Direct Gemini if valid, else fallback to OpenRouter
-  const useOpenRouter = !geminiKey || geminiKey.includes('DUMMY') || !geminiKey.startsWith('AIza')
+  // If geminiKey exists but doesn't look like AIza, we still use it if openRouterKey is missing
+  const useOpenRouter = openRouterKey && (!geminiKey || geminiKey.includes('DUMMY') || !geminiKey.startsWith('AIza'))
   const apiKey = useOpenRouter ? openRouterKey : geminiKey
   const model = useOpenRouter 
     ? (import.meta.env.VITE_OPENROUTER_MODEL || 'google/gemini-2.0-flash-lite-preview-09-2025:free')
