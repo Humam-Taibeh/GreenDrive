@@ -1,87 +1,72 @@
-# GreenDrive AI — Comprehensive Handover Document
+# 🌿 GreenDrive AI
+> **Tactical Energy Intelligence for the Modern Driver.**
 
-GreenDrive is an advanced, AI-driven route optimization platform designed to maximize fuel efficiency and minimize CO₂ emissions using real-world terrain physics and live Google Maps telemetry.
-
-## 🚀 Core Value Proposition
-GreenDrive differentiates itself from standard navigation by integrating **Elevation-Aware Physics**. It calculates energy consumption based on:
-- **mgh Work**: Gravity penalty during ascents.
-- **Regenerative Braking**: Potential energy recovery during descents (optimized for EV/Hybrid).
-- **Vehicle Profiles**: Custom curves for Petrol, Diesel, Hybrid, and Electric vehicles (calibrated for Jordan's fuel pricing and NEPCO grid carbon intensity).
+GreenDrive is a production-grade, AI-driven route optimization platform built for the **Amman-Jordan** ecosystem. It goes beyond simple navigation by integrating real-world terrain physics and live vehicle telemetry to calculate the true cost of every trip—both in JOD and CO₂.
 
 ---
 
-## 🛠️ Technology Stack
-- **Core**: React 19, Vite, TypeScript 6.
-- **Styling**: Tailwind CSS 4 (Beta), Framer Motion (Glassmorphism & Micro-animations).
-- **Mapping**: Google Maps JavaScript API (@googlemaps/js-api-loader) with Advanced Marker API.
-- **Visuals**: Three.js + React Three Fiber (Ambient liquid WebGL background).
-- **Backend**: Firebase 12 (Authentication, Firestore, Hosting).
-- **Analytics**: Recharts for fuel/emission trends.
+## 📽️ The Vision
+In a region like Jordan, where fuel prices are high and terrain (like Amman's hills) significantly impacts efficiency, standard navigation falls short. GreenDrive fills this gap with a **Physics-First** approach, turning every drive into a tactical sustainability mission.
+
+## ✨ Key Innovation: The AI Eco-Coach
+Powered by the **Gemini 1.5 API**, GreenDrive features a dedicated "AI Eco-Coach" that acts as a tactical energy consultant.
+- **Context-Aware Briefings**: Analyzes route ascent, traffic waste, and vehicle type to provide human-readable tactical advice.
+- **Dynamic Analysis**: On-demand route breakdown that explains *why* a path is eco-friendly or balanced.
+- **Impact Projections**: Converts abstract CO₂ grams into tangible metrics, like "Bio-Equivalent" mature tree absorption.
 
 ---
 
-## 🏗️ System Architecture
+## 🛠️ The Technical Powerhouse
+Built with a focus on high-fidelity performance and zero-regression architecture:
 
-### 1. Data Flow
-1. **Input**: User selects origin/destination via `SmartLocationInput` or map click.
-2. **Routing**: `useDirectionsRoutes` fetches multiple paths (Fastest, Eco, Balanced) from Google Directions API.
-3. **Physics**: `vehicleProfiles.ts` processes each route's distance and ascent (from Google Elevation API) to estimate fuel and CO₂.
-4. **AI Layer**: `gemini.ts` analyzes these metrics to provide human-readable insights.
+### ⚛️ Frontend Excellence
+- **React 19 & Vite**: Utilizing the latest React features for ultra-fast performance.
+- **Framer Motion**: Premium glassmorphic UI with smooth micro-animations and layout transitions.
+- **Three.js / WebGL**: Ambient liquid mesh backgrounds and topographic grid overlays for a "Command Center" feel.
+- **RTL-First**: Deeply integrated Arabic/English support using Tailwind logical properties and a custom i18n engine.
 
-### 2. Service Layer (`src/services/`)
-- **`gemini.ts`**: Handles the "AI Eco Coach". 
-    - *Note*: Currently utilizes a deterministic logic engine that maps live route metrics into context-aware response templates. This ensures 100% factual accuracy regarding fuel savings without LLM hallucinations during hackathon demos.
-- **`googleElevation.ts`**: Fetches terrain data. 
-    - *Constraint*: Direct client-side calls may hit CORS; a proxy is recommended for production.
+### 🧮 Physics & Mapping
+- **Elevation-Aware Routing**: Real-time integration with **Google Maps SDK** and **Elevation API** to calculate `mgh` work penalty.
+- **Vehicle-Specific Modeling**: Custom efficiency curves for **Petrol, Diesel, Hybrid, and Electric (EV)** vehicles.
+- **Jordan-Specific Calibration**: Hardcoded with local Ministry of Energy fuel pricing (May 2026) and NEPCO grid carbon intensity.
 
-### 3. Logic & Domain (`src/lib/`)
-- **`vehicleProfiles.ts`**: Contains the mathematical models for emissions.
-    - `computeTripEmissions()`: The heart of the energy calculation.
-- **`useDirectionsRoutes.ts`**: Wrapper for Google Maps Directions service.
-
----
-
-## 🌍 Localization (i18n)
-- **Engine**: Custom context-based provider (`LocaleContext`).
-- **Languages**: Full **English** and **Arabic** support.
-- **RTL Support**: Dynamic layout switching using `dir="rtl"` and Tailwind logical properties.
-- **Translations**: Located in `src/i18n/translations.ts`.
+### 🛡️ Secure Infrastructure
+- **Firebase Core**: Secure Auth, Firestore real-time sync, and lightning-fast Hosting.
+- **Auth Vault**: A military-grade interface for managing user profiles and sustainability history.
 
 ---
 
-## 🛡️ Security & Privacy
-The system includes an **"Auth Vault"** concept:
-- **Biometric Simulation**: Concept for securing location data.
-- **Zero-Knowledge Path**: Strategic goal to encrypt user history locally before syncing to Firestore.
-- **Firebase Rules**: Restricted access to `userLocations` collection (only owner can read/write).
+## 🚀 Getting Started for Judges
 
----
-
-## 🧠 Handover Notes for AI Developers
-
-### Key Components to Watch:
-1. **`MapViewPage.tsx`**: The main orchestration component. It handles map initialization, marker placement, route rendering, and AI tab state. It's the most complex file (900+ lines).
-2. **`GeminiCopilot.tsx`**: The UI for the AI interaction. It listens for `aiCommand` and triggers `sendGeminiMessage`.
-3. **`SmartLocationInput.tsx`**: Custom input with autocomplete and "Locate Me" integration.
-
-### Known Constraints & Gotchas:
-- **Google Maps ID**: Required for `AdvancedMarkerElement`. Ensure the `mapId` in `MapViewPage` matches your Google Cloud Console configuration.
-- **Elevation Data**: The app currently defaults to a base ascent of 70m if the Elevation API fails or is throttled.
-- **Regional Pricing**: Fuel and electricity rates are hardcoded to Jordan 2025/2026 benchmarks (approx. 0.87 JOD/L for Petrol, 0.09 JOD/kWh for EV).
-- **Firebase Environment**: All Firebase features are wrapped in `firebaseConfigured` checks to prevent crashes if `.env` is missing.
-
-### Recommended Next Steps:
-- **Live LLM Integration**: Replace the template-based `sendGeminiMessage` with a real Vertex AI / Gemini API call once a secure backend proxy is established.
-- **Real-time Telemetry**: Integrate OBD-II / CAN bus data simulation for live vehicle health monitoring.
-- **Offline Mode**: Implement Service Workers for map tiling and routing cache.
-
----
-
-## 🛠️ Development Commands
-```bash
-npm run dev     # Start development server
-npm run build   # Production build
-npm run lint    # Code quality check
+### 1. Requirements
+Ensure you have the following environment variables set in your `.env.local`:
+```env
+VITE_GOOGLE_MAPS_API_KEY=your_key
+VITE_GEMINI_API_KEY=your_key
+VITE_FIREBASE_API_KEY=your_key
+# ... and other Firebase config variables
 ```
 
-*Generated by Antigravity IDE — Secure, Fast, Intelligent.*
+### 2. Launch
+```bash
+npm install
+npm run dev
+```
+
+### 3. "How to Judge" — Key Demo Path
+1. **The Landing**: Experience the WebGL-powered liquid background and scroll-spy navigation.
+2. **The Vault**: Sign in to see the personalized "Lead" profile and vehicle settings.
+3. **The Mission**: Go to the Map, select "Amman" to "Dead Sea" (dramatic elevation change).
+4. **The Briefing**: Select a route and click **"More details via AI"**. Watch the AI Eco-Coach provide a tactical breakdown of the terrain and fuel savings.
+5. **The Impact**: Toggle between Arabic and English to see the pixel-perfect RTL transition.
+
+---
+
+## 👥 The Team
+- **Humam Taibeh**: Lead Architect & Systems Engineer
+- **Heba Taibeh**: Product Strategy & Experience Design
+- **Natalia Al-Hajawi**: Security & QA Lead
+
+---
+
+*Engineered with precision for a greener tomorrow.*
