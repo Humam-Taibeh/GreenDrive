@@ -322,7 +322,7 @@ function LocationField({
           {recent.length > 0 && (
             <div>
               <p className="flex items-center gap-1.5 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 dark:text-white/35">
-                <IconClock /> Recent
+                <IconClock /> {t('map.recent')}
               </p>
               {recent.map((loc) => (
                 <button
@@ -378,6 +378,7 @@ export function SmartLocationInput({
   apiReady,
 }: Props) {
   const id = useId()
+  const { t } = useLocale()
   const { resolve, loading } = useReverseGeocode()
   const [gpsTarget, setGpsTarget] = useState<'origin' | 'destination' | null>(null)
   const recent = getRecentLocations()
@@ -414,7 +415,7 @@ export function SmartLocationInput({
   return (
     <div className="rounded-2xl border border-black/10 bg-white/60 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.04]">
       <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-toxic">
-        📍 Route Planner
+        📍 {t('map.routePlanner')}
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-2">
@@ -475,7 +476,7 @@ export function SmartLocationInput({
         <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 8v4m0 4h.01" />
         </svg>
-        Type to search (Places), tap GPS for auto-location, or click the map to pin a point.
+        {t('map.searchHint')}
       </p>
     </div>
   )

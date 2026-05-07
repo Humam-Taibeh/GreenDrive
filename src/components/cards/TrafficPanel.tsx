@@ -79,14 +79,14 @@ export function TrafficPanel({ baseMinutes, baseFuelL }: Props) {
               <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
                 <span className="text-zinc-500 dark:text-white/40">{t('traffic.timeLabel')}</span>
                 <span className="text-end font-mono font-semibold text-zinc-900 dark:text-white" dir="ltr">
-                  {slot.adjustedMin} min
+                  {slot.adjustedMin} {t('map.unitMin')}
                   {slot.adjustedMin > baseMinutes && (
                     <span className="ml-1 text-red-400">+{slot.adjustedMin - baseMinutes}</span>
                   )}
                 </span>
                 <span className="text-zinc-500 dark:text-white/40">{t('traffic.fuelLabel')}</span>
                 <span className="text-end font-mono font-semibold text-zinc-900 dark:text-white" dir="ltr">
-                  {slot.adjustedFuelL.toFixed(2)} L
+                  {slot.adjustedFuelL.toFixed(2)} {t('map.unitL')}
                   {baseFuelL !== null && slot.adjustedFuelL > baseFuelL && (
                     <span className="ml-1 text-red-400">+{(slot.adjustedFuelL - baseFuelL).toFixed(2)}</span>
                   )}
@@ -121,8 +121,8 @@ export function TrafficPanel({ baseMinutes, baseFuelL }: Props) {
             style={{ left: `${((nowHour * 60 + nowMinute) / 1440) * 100}%` }}
           />
         </div>
-        <p className="mt-1 text-right text-[9px] text-zinc-400 dark:text-white/30" dir="ltr">
-          ▲ Now ({String(nowHour).padStart(2, '0')}:{String(nowMinute).padStart(2, '0')})
+        <p className="mt-1 text-right text-[9px] text-zinc-400 dark:text-white/30" dir={isAr ? 'rtl' : 'ltr'}>
+          ▲ {t('map.now')} ({String(nowHour).padStart(2, '0')}:{String(nowMinute).padStart(2, '0')})
         </p>
       </div>
 

@@ -63,7 +63,7 @@ export function Navbar() {
   })
   const { t, locale, setLocale } = useLocale()
   const { preference, setPreference, resolvedTheme } = useTheme()
-  const { user, signOut, profile, updateVehicleType, updateChargeLevel } = useAuth()
+  const { user, signOut, profile, updateVehicleType, updateChargeLevel, updatePreferences } = useAuth()
   const reduceMotion = useReducedMotion()
   const [activeSection, setActiveSection] = useState<string>(NAV_SECTION_HASHES[0] ?? '#overview')
   const startPath = '/auth'
@@ -155,6 +155,7 @@ export function Navbar() {
     setCharge(level)
     try {
       localStorage.setItem('gd-charge', level.toString())
+      window.dispatchEvent(new Event('gd-charge-update'))
     } catch {
       /* ignore */
     }
@@ -182,6 +183,16 @@ export function Navbar() {
     } catch {
       /* ignore */
     }
+  }
+
+  const selectLocale = (l: any) => {
+    setLocale(l)
+    if (user) void updatePreferences({ locale: l })
+  }
+
+  const selectTheme = (p: any) => {
+    setPreference(p)
+    if (user) void updatePreferences({ theme: p })
   }
 
   return (
@@ -389,10 +400,10 @@ export function Navbar() {
         currentCharge={charge}
         user={user}
         onClose={() => setSettingsOpen(false)}
-        onSetPreference={setPreference}
+        onSetPreference={selectTheme}
         onToggleSimulationMode={toggleSimulationMode}
         onSetUnitSystem={selectUnitSystem}
-        onSetLocale={setLocale}
+        onSetLocale={selectLocale}
         onSetVehicle={selectVehicle}
         onSetCharge={selectCharge}
         onSignOut={() => {

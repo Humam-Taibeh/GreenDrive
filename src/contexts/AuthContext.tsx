@@ -37,6 +37,7 @@ interface AuthCtx {
   updateVehicleType: (v: string) => Promise<void>
   updateChargeLevel: (level: number) => Promise<void>
   updateNamedLocation: (type: 'home' | 'work', loc: { lat: number; lng: number; address: string; label: string } | null) => Promise<void>
+  updatePreferences: (prefs: Partial<{ theme: string; locale: string }>) => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
@@ -194,6 +195,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(prev => prev ? { ...prev, [field]: loc } : null)
   }, [user])
 
+  const updatePreferences = useCallback(async (prefs: Partial<{ theme: string; locale: string }>) => {
+    setProfile(prev => {
+      if (!prev) return null
+      return {
+        ...prev,
+        preferences: { ...prev.preferences, ...prefs } as any
+      }
+    })
+    
+    if (!user || !db || !cloudHealthy) return
+    try {
+      const ref = doc(db, 'users', user.uid)
+      await setDoc(ref, { 
+        preferences: prefs, 
+        updatedAt: serverTimestamp() 
+      }, { merge: true })
+    } catch (e) {
+      console.warn('[AuthContext] Pref sync failed.')
+    }
+  }, [user, cloudHealthy])
+
   const refreshProfile = useCallback(async () => {
     if (user && db) await loadProfile(user)
   }, [user, loadProfile])
@@ -210,10 +232,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateVehicleType,
       updateChargeLevel,
       updateNamedLocation,
+      updatePreferences,
       refreshProfile,
       cloudHealthy,
     }),
-    [user, profile, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut, updateVehicleType, updateChargeLevel, updateNamedLocation, refreshProfile, cloudHealthy]
+    [user, profile, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut, updateVehicleType, updateChargeLevel, updateNamedLocation, updatePreferences, refreshProfile, cloudHealthy]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

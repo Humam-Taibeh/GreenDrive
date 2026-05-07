@@ -157,3 +157,43 @@ export function computeTripEmissions(
 
   return { co2Kg, fuelLiters, costJOD, costJODStr, label }
 }
+
+/**
+ * NEW: Calculates "Traffic Waste" metrics.
+ * Compares real-time duration vs static duration to find fuel/JOD lost to idling.
+ */
+export function calculateTrafficWaste(
+  totalDurationMin: number,
+  staticDurationMin: number,
+  vehicleType: VehicleType
+) {
+  const trafficDelayMin = Math.max(0, totalDurationMin - staticDurationMin)
+  if (trafficDelayMin <= 0) return null
+
+  const idleRates = { petrol: 1.2, diesel: 1.0, hybrid: 0.4, electric: 1.5 }
+  const rate = idleRates[vehicleType] || 1.2
+  const wastedVolume = (trafficDelayMin / 60) * rate
+  
+  const prices = { petrol: 1.000, diesel: 0.790, hybrid: 1.310, electric: 0.118 }
+  const price = prices[vehicleType] || 1.000
+  const wastedJod = wastedVolume * price
+
+  return {
+    delayMin: trafficDelayMin,
+    volume: wastedVolume,
+    jod: wastedJod,
+    jodStr: wastedJod.toFixed(2)
+  }
+}
+
+/**
+ * NEW: Projects the impact of a single trip's savings over a year (250 days).
+ */
+export function projectYearlyImpact(savingsJod: number, savingsCo2: number) {
+  const DAYS = 250 
+  return {
+    jod: (savingsJod * DAYS).toFixed(0),
+    co2: (savingsCo2 * DAYS).toFixed(1),
+    trees: Math.round((savingsCo2 * DAYS) / 21) 
+  }
+}

@@ -12,10 +12,15 @@ import { useAuth } from '../contexts/AuthContext'
 import { useSavedLocations } from '../hooks/useSavedLocations'
 import { getCurrentPosition, saveRecentLocation } from '../hooks/useReverseGeocode'
 import { useDirectionsRoutes } from '../lib/useDirectionsRoutes'
-import { computeTripEmissions } from '../lib/vehicleProfiles'
+import { 
+  computeTripEmissions, 
+  calculateTrafficWaste, 
+  projectYearlyImpact 
+} from '../lib/vehicleProfiles'
 import type { VehicleType } from '../lib/vehicleProfiles'
 import type { RouteOption } from '../types'
 import {
+  sendGeminiMessage,
   type CopilotRouteMetrics,
 } from '../services/gemini'
 
@@ -26,14 +31,19 @@ const ICON_SIZE = 14
 const ICON_STROKE = 1.5
 
 
-const CalculateButton = memo(function CalculateButton({ onClick, disabled, loading }: { onClick: () => void; disabled: boolean; loading: boolean }) {
+const CalculateButton = memo(function CalculateButton({ onClick, disabled, loading, isDark }: { onClick: () => void; disabled: boolean; loading: boolean; isDark: boolean }) {
   const { t } = useLocale()
+  
+  const bgStyle = isDark 
+    ? 'bg-toxic text-onyx shadow-[0_0_28px_-10px_rgba(54,255,151,0.7)] hover:shadow-[0_0_42px_-8px_rgba(54,255,151,0.85)]' 
+    : 'bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 shadow-emerald-600/20'
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className="w-full rounded-xl border border-toxic/50 bg-toxic px-5 py-3 text-sm font-black uppercase tracking-wider text-onyx shadow-[0_0_28px_-10px_rgba(54,255,151,0.7)] transition hover:shadow-[0_0_42px_-8px_rgba(54,255,151,0.85)] disabled:opacity-45"
+      className={`w-full rounded-xl border border-transparent px-5 py-3 text-sm font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-45 ${bgStyle}`}
     >
       {loading ? t('map.load') : t('map.analyze')}
     </button>
@@ -46,67 +56,71 @@ const RouteCard = memo(function RouteCard({
   onSelect,
   onAnalyze,
   color,
+  isDark,
+  analyzing
 }: {
-  route: RouteOption
+  route: RouteOption & { categoryTitle: string; descriptor: string }
   selected: boolean
   onSelect: () => void
   onAnalyze: () => void
   color: string
+  isDark: boolean
+  analyzing?: boolean
 }) {
-  const isOptimal = route.id === 'fast' && route.label === 'Optimal Route'
-
-  const focusTitle =
-    isOptimal                ? 'OPTIMAL'
-    : route.id === 'fast'    ? 'FASTEST'
-    : route.id === 'eco'     ? 'ECO-FRIENDLY'
-    : 'BALANCED'
-
-  const descriptor =
-    isOptimal                ? 'Fastest & Greenest'
-    : route.id === 'fast'    ? 'Quickest Path'
-    : route.id === 'eco'     ? 'Most Cost-Saving'
-    : 'Optimum Balance'
-
-  // Optimal gets a gold accent ring to distinguish it from plain FASTEST
+  const { t } = useLocale()
+  const isOptimal = route.categoryTitle.includes('Optimal') || route.categoryTitle.includes('الأمثل')
+  
+  // Refined border and background based on theme
   const borderStyle = selected
     ? isOptimal
       ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400 shadow-[0_0_30px_-14px_rgba(251,191,36,0.75)]'
       : 'border-toxic bg-toxic/10 ring-2 ring-toxic shadow-[0_0_30px_-14px_rgba(54,255,151,0.75)]'
     : isOptimal
-      ? 'border-amber-400/30 bg-amber-400/[0.03] hover:border-amber-400/50 hover:ring-1 hover:ring-amber-400/40'
-      : 'border-white/12 bg-white/[0.04] hover:border-toxic/40 hover:ring-1 hover:ring-toxic/30'
+      ? `border-amber-400/30 ${isDark ? 'bg-amber-400/[0.03]' : 'bg-amber-50/40'} hover:border-amber-400/50 hover:ring-1 hover:ring-amber-400/40`
+      : `${isDark ? 'border-white/12 bg-white/[0.04]' : 'border-black/10 bg-black/[0.02]'} hover:border-toxic/40 hover:ring-1 hover:ring-toxic/30`
+
+  const textPrimary = isDark ? 'text-white' : 'text-zinc-900'
+  const textSecondary = isDark ? 'text-white/60' : 'text-zinc-500'
+  const textMuted = isDark ? 'text-white/40' : 'text-zinc-400'
 
   return (
     <div
       className={`relative w-full cursor-pointer rounded-xl border p-3 transition-all duration-300 ${borderStyle}`}
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between">
-        <p className={`flex items-center gap-2 text-xs font-black uppercase tracking-tighter ${isOptimal ? 'text-amber-300' : ''}`}>
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-          {focusTitle}
-          {isOptimal && <span className="text-[9px] font-mono text-amber-400/70 normal-case tracking-normal">⚡ fastest+greenest</span>}
-        </p>
-        <span className="text-[10px] font-mono text-white/40">{descriptor}</span>
+      <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+        <div className="flex flex-col items-start gap-1">
+          <p className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter ${isOptimal ? 'text-amber-500' : isDark ? 'text-white/90' : 'text-zinc-800'}`}>
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+            {route.categoryTitle}
+          </p>
+          {isOptimal && (
+            <span className="text-[9px] font-mono text-amber-500/70 normal-case tracking-normal">
+              ⚡ {t('map.fastGreenest')}
+            </span>
+          )}
+        </div>
+        <span className={`text-[10px] font-mono ${textMuted} whitespace-nowrap`}>
+          {route.descriptor}
+        </span>
       </div>
       <div className="mt-3 space-y-2">
         <div className="flex items-baseline justify-between gap-1">
-          <p className="text-base font-bold text-white">{route.durationMin} min</p>
-          <p className="text-xs font-mono text-white/60">{route.distanceKm.toFixed(1)} km</p>
+          <p className={`text-base font-bold ${textPrimary}`}>{route.durationMin} min</p>
+          <p className={`text-xs font-mono ${textSecondary}`}>{route.distanceKm.toFixed(1)} km</p>
         </div>
         <button
           type="button"
+          disabled={analyzing}
           onClick={(e) => { e.stopPropagation(); onAnalyze(); }}
           className={`flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-[10px] font-black uppercase tracking-widest transition ${
-            selected
-              ? isOptimal
-                ? 'bg-amber-400 text-black hover:bg-amber-300 shadow-[0_0_15px_-5px_rgba(251,191,36,0.5)]'
-                : 'bg-toxic text-onyx hover:bg-toxic/90 shadow-[0_0_15px_-5px_rgba(54,255,151,0.4)]'
-              : 'bg-toxic/20 text-toxic hover:bg-toxic/30 shadow-[0_0_15px_-5px_rgba(54,255,151,0.2)]'
-          }`}
+            isDark 
+              ? 'bg-white/5 text-white hover:bg-white/10' 
+              : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
+          } ${analyzing ? 'opacity-50 cursor-wait' : ''}`}
         >
-          <Bot size={12} />
-          VIEW MORE DETAIL
+          <Bot size={12} className={analyzing ? 'animate-pulse text-toxic' : isDark ? 'text-toxic' : 'text-emerald-600'} />
+          {analyzing ? t('cop.thinking') : t('map.moreDetails')}
         </button>
       </div>
     </div>
@@ -115,21 +129,22 @@ const RouteCard = memo(function RouteCard({
 
 /** Placeholder card for when Google Maps can't produce a 3rd alternative path */
 const PlaceholderCard = memo(function PlaceholderCard({ slotLabel }: { slotLabel: string }) {
+  const { t } = useLocale()
   return (
-    <div className="relative w-full rounded-xl border border-white/6 bg-white/[0.02] p-3 opacity-50">
+    <div className="relative w-full rounded-xl border border-black/5 bg-black/[0.02] p-3 opacity-50 dark:border-white/6 dark:bg-white/[0.02]">
       <div className="flex items-center justify-between">
-        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-tighter text-white/30">
-          <span className="h-2 w-2 rounded-full bg-white/20" />
+        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-tighter text-zinc-400 dark:text-white/30">
+          <span className="h-2 w-2 rounded-full bg-zinc-200 dark:bg-white/20" />
           {slotLabel}
         </p>
-        <span className="text-[10px] font-mono text-white/20">Unavailable</span>
+        <span className="text-[10px] font-mono text-zinc-400 dark:text-white/20">{t('map.unavailable')}</span>
       </div>
       <div className="mt-3 space-y-2">
-        <p className="text-xs text-white/25 font-mono leading-relaxed">
-          No alternative route available for this corridor.
+        <p className="text-xs text-zinc-400 dark:text-white/25 font-mono leading-relaxed">
+          {t('map.noRoute')}
         </p>
-        <div className="flex w-full items-center justify-center rounded-lg border border-white/8 py-2.5 text-[10px] font-black uppercase tracking-widest text-white/20">
-          — SECTOR LOCKED —
+        <div className="flex w-full items-center justify-center rounded-lg border border-black/8 py-2.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/20">
+          {t('map.sectorLocked')}
         </div>
       </div>
     </div>
@@ -143,10 +158,17 @@ export function MapViewPage() {
   const { profile, user } = useAuth()
   const { savedLocations, saveLocation } = useSavedLocations()
   const isArabic = locale === 'ar'
-  const isDark = resolvedTheme === 'dark'
+  const isDark = resolvedTheme === 'dark' || document.documentElement.classList.contains('dark')
 
   const [activeTab, setActiveTab] = useState<'planner' | 'results' | 'saved'>('planner')
   const [clickMode, setClickMode] = useState<'origin' | 'destination'>('origin')
+  
+  // ⚡ THEME SYNC: Sync HTML class with resolvedTheme for MapView sub-components
+  useEffect(() => {
+    const root = document.documentElement
+    if (resolvedTheme === 'dark') root.classList.add('dark')
+    else root.classList.remove('dark')
+  }, [resolvedTheme])
   const [vehicle, setVehicle] = useState<VehicleType>((profile?.vehicleType as VehicleType) || 'petrol')
   
   // Sync vehicle type if profile updates (e.g. after registration)
@@ -164,6 +186,38 @@ export function MapViewPage() {
   const [myLocationBusy, setMyLocationBusy] = useState(false)
   const [plannerExpanded, setPlannerExpanded] = useState(true)
   const [isCopilotOpen, setIsCopilotOpen] = useState(false)
+  const [briefing, setBriefing] = useState<string | null>(null)
+  const [analysisLoadingId, setAnalysisLoadingId] = useState<string | null>(null)
+  const [analysisMetrics, setAnalysisMetrics] = useState<any>(null)
+  const [localCharge, setLocalCharge] = useState<number>(() => {
+    try {
+      const s = localStorage.getItem('gd-charge')
+      return s ? parseInt(s) : 85
+    } catch { return 85 }
+  })
+  const lastBriefedRoutes = useRef<string>('')
+
+  // Sync local charge if profile updates
+  useEffect(() => {
+    if (profile?.currentChargePercent !== undefined) {
+      setLocalCharge(profile.currentChargePercent)
+    }
+  }, [profile?.currentChargePercent])
+
+  // Listen for local storage changes (from Navbar settings)
+  useEffect(() => {
+    const handleStorage = () => {
+      const s = localStorage.getItem('gd-charge')
+      if (s) setLocalCharge(parseInt(s))
+    }
+    window.addEventListener('storage', handleStorage)
+    // Custom event if Navbar uses dispatchEvent for same-tab sync
+    window.addEventListener('gd-charge-update', handleStorage as any)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('gd-charge-update', handleStorage as any)
+    }
+  }, [])
 
   const mapEl = useRef<HTMLDivElement>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
@@ -192,70 +246,135 @@ export function MapViewPage() {
     }
   }, [vehicle, analyzeTriggered, origin, destination, directions.fetchRoutes])
 
-  const mapStyles = useMemo<google.maps.MapTypeStyle[]>(
-    () => isDark ? [
-      { elementType: 'geometry', stylers: [{ color: '#000000' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#8B949E' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#000000' }] },
-      { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-      { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-      { featureType: 'landscape', stylers: [{ visibility: 'off' }] },
-      { featureType: 'administrative.neighborhood', stylers: [{ visibility: 'off' }] },
-      { featureType: 'administrative.locality', stylers: [{ visibility: 'on' }] },
-      { featureType: 'road.local', stylers: [{ visibility: 'off' }] },
-      { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-      { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#2E3A46' }] },
-      { featureType: 'road.arterial', elementType: 'labels.text.fill', stylers: [{ color: '#CBD5E1' }] },
-      { featureType: 'road.arterial', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#4B5563' }] },
-      { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#E5E7EB' }] },
-      { featureType: 'road.highway', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-      { featureType: 'water', stylers: [{ visibility: 'off' }] },
-    ] : [
-      { elementType: 'geometry', stylers: [{ color: '#F6F8FA' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#334155' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }] },
-      { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-      { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-      { featureType: 'landscape', stylers: [{ visibility: 'off' }] },
-      { featureType: 'administrative.neighborhood', stylers: [{ visibility: 'off' }] },
-      { featureType: 'administrative.locality', stylers: [{ visibility: 'on' }] },
-      { featureType: 'road.local', stylers: [{ visibility: 'off' }] },
-      { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-      { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#94A3B8' }] },
-      { featureType: 'road.arterial', elementType: 'labels.text.fill', stylers: [{ color: '#1E293B' }] },
-      { featureType: 'road.arterial', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#64748B' }] },
-      { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#0F172A' }] },
-      { featureType: 'road.highway', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-      { featureType: 'water', stylers: [{ visibility: 'off' }] },
-    ],
-    [isDark],
-  )
-
-  const mapOptions = useMemo<google.maps.MapOptions>(
-    () => {
-      const mapId = import.meta.env.VITE_GOOGLE_MAP_ID || 'DEMO_MAP_ID'
-      return {
-        center: MAP_DEFAULT_CENTER,
-        zoom: 12,
-        disableDefaultUI: true,
-        clickableIcons: false,
-        gestureHandling: 'greedy',
-        // If we have a Map ID (custom or demo), we MUST NOT provide styles in the code
-        styles: mapId ? undefined : mapStyles,
-        backgroundColor: isDark ? '#000000' : '#F3F5F7',
-      }
-    },
-    [mapStyles, isDark],
-  )
+  const mapOptions = useMemo((): google.maps.MapOptions => {
+    return {
+      center: MAP_DEFAULT_CENTER,
+      zoom: 12,
+      disableDefaultUI: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      clickableIcons: false,
+      backgroundColor: isDark ? '#17263c' : '#F3F5F7',
+      // Advanced Markers REQUIRE a mapId. custom 'styles' cannot be used with mapId.
+      // We use the native colorScheme instead for modern dark mode support.
+      mapId: import.meta.env.VITE_GOOGLE_MAP_ID || 'DEMO_MAP_ID',
+      colorScheme: isDark ? 'DARK' : 'LIGHT',
+    };
+  }, [isDark])
 
   const liveRoutes = useMemo<RouteOption[]>(
     () => (directions.status === 'ok' ? directions.routes : []),
     [directions],
   )
+
+  const categorizedRoutes = useMemo(() => {
+    if (liveRoutes.length === 0) return []
+
+    // 1. Pre-calculate metrics for all routes to find extremes
+    const routesWithMetrics = liveRoutes.map(r => {
+      const stats = computeTripEmissions(r.distanceKm, r.ascentM ?? 60, 0.85, vehicle)
+      return {
+        ...r,
+        fuelVolume: stats.fuelLiters ?? parseFloat(stats.label),
+        cost: stats.costJOD
+      }
+    })
+
+    const minTime = Math.min(...routesWithMetrics.map(r => r.durationMin))
+    const minFuel = Math.min(...routesWithMetrics.map(r => r.fuelVolume))
+
+    let alternativeCount = 0
+
+    // 2. Assign dynamic category titles based on physics
+    return routesWithMetrics.map(r => {
+      const isFastest = r.durationMin === minTime
+      const isGreenest = r.fuelVolume === minFuel
+
+      let titleKey = 'map.alternative'
+      let descKey = 'map.descBalanced'
+
+      if (isFastest && isGreenest) {
+        titleKey = 'map.optimal'
+        descKey = 'map.descOptimal'
+      } else if (isFastest) {
+        titleKey = 'map.fastest'
+        descKey = 'map.descFastest'
+      } else if (isGreenest) {
+        titleKey = 'map.ecoFriendly'
+        descKey = 'map.descEco'
+      } else {
+        titleKey = 'map.balanced'
+        alternativeCount++
+      }
+
+      const baseTitle = t(titleKey as any)
+      // Append number only if multiple balanced routes exist
+      const finalTitle = (titleKey === 'map.balanced' && alternativeCount > 1) 
+        ? `${baseTitle} ${alternativeCount}` 
+        : baseTitle
+
+      return {
+        ...r,
+        categoryTitle: finalTitle,
+        descriptor: t(descKey as any)
+      }
+    })
+  }, [liveRoutes, vehicle, t, isArabic])
+
+  const handleAnalyzeRoute = async (route: any) => {
+    if (analysisLoadingId) return
+    setAnalysisLoadingId(route.id)
+    setIsCopilotOpen(true)
+    
+    const stats = computeTripEmissions(route.distanceKm, route.ascentM ?? 60, 0.85, vehicle)
+    
+    // NEW: Realistic Advanced Analytics for the Jordan Corridor
+    const waste = calculateTrafficWaste(route.durationMin, route.staticDurationMin ?? route.durationMin, vehicle)
+    const yearly = projectYearlyImpact(stats.costJOD, stats.co2Kg)
+
+    const payload = `Analyze this ${route.categoryTitle} route:
+- Distance: ${route.distanceKm.toFixed(1)} km
+- Time: ${route.durationMin} min
+- Energy/Fuel: ${stats.fuelLiters?.toFixed(2) || stats.label} ${stats.fuelLiters ? 'L' : 'kWh'}
+- Cost: ${stats.costJODStr} JOD
+- CO2: ${stats.co2Kg.toFixed(2)} kg
+- Ascent: ${route.ascentM ?? 60} m
+
+TACTICAL SUSTAINABILITY METRICS (Yearly/Traffic):
+- Yearly Projection: If taken daily, this trip costs ${yearly.jod} JOD/year and emits ${yearly.co2} kg CO2.
+- Bio-Equivalent: Equal to the absorption capacity of ${yearly.trees} mature trees per year.
+${waste ? `- Traffic Waste: You are losing ${waste.jodStr} JOD specifically to idling and congestion on this corridor.` : '- Flow: This route has minimal traffic delay penalty.'}
+
+Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for this Jordan trip. Use only the provided numbers. Mention Amman terrain if ascent > 100m.`
+
+    // P2: Pass copilotRouteMetrics to fix "N/A" cost in AI analysis
+    const metrics: CopilotRouteMetrics = {
+      fuelSavedLiters: stats.fuelLiters ?? parseFloat(stats.label),
+      ascentM: route.ascentM ?? 60,
+      estJodSaved: stats.costJOD,
+      selectedRouteId: route.id,
+    }
+
+    const reply = await sendGeminiMessage(payload, {
+      firstName: profile?.firstName,
+      vehicleType: vehicle,
+      locale: locale as any,
+      destination: destination?.display,
+      hasActiveRoute: true,
+      activeRouteData: {
+        type: route.categoryTitle,
+        distance: `${route.distanceKm.toFixed(1)} km`,
+        duration: `${route.durationMin} min`
+      },
+      copilotRouteMetrics: metrics
+    })
+    
+    setBriefing(reply)
+    setAnalysisMetrics(metrics)
+    setAnalysisLoadingId(null)
+  }
+
   const hasRealResults = analyzeTriggered && liveRoutes.length > 0
   const selectedRoute =
     liveRoutes.find((r) => r.id === selectedRouteId) ??
@@ -408,7 +527,6 @@ export function MapViewPage() {
         if (cancelled || !mapEl.current) return
         const map = new Map(mapEl.current, {
           ...mapOptions,
-          mapId: import.meta.env.VITE_GOOGLE_MAP_ID || 'DEMO_MAP_ID',
         })
         mapRef.current = map
         geocoderRef.current = new google.maps.Geocoder()
@@ -459,6 +577,13 @@ export function MapViewPage() {
     const ref = (window as unknown as Record<string, unknown>)['__gdClickModeRef'] as { current: 'origin' | 'destination' } | undefined
     if (ref) ref.current = clickMode
   }, [clickMode])
+  
+  // ⚡ DYNAMIC THEME SYNC: Update map styles when isDark changes without re-init
+  useEffect(() => {
+    if (mapRef.current && mapOptions) {
+      mapRef.current.setOptions(mapOptions)
+    }
+  }, [isDark, mapOptions])
 
   useEffect(() => {
     if (origin) saveRecentLocation({ display: origin.display, lat: origin.lat, lng: origin.lng, savedAt: Date.now() })
@@ -529,8 +654,8 @@ export function MapViewPage() {
         path: r.polyline ?? [],
         geodesic: true,
         strokeColor: ROUTE_COLORS[i] ?? '#36FF97',
-        strokeOpacity: 0.34,
-        strokeWeight: 3,
+        strokeOpacity: 0.45,
+        strokeWeight: 4,
       })
       return poly
     })
@@ -595,8 +720,8 @@ export function MapViewPage() {
   const panelInner = isDark ? 'bg-white/[0.04] border-white/12' : 'bg-white/80 border-black/10'
   const chipMuted = isDark ? 'text-white/65' : 'text-zinc-600'
   const chipActive = isDark ? 'bg-[rgba(54,255,151,0.12)] text-toxic' : 'bg-[rgba(54,255,151,0.16)] text-emerald-700'
-  const plannerAnchor = isArabic ? 'right-4' : 'left-4'
-  const controlsAnchor = isArabic ? 'left-4' : 'right-4'
+  const plannerAnchor = 'start-4'
+  const controlsAnchor = 'end-4'
   const dirAttr: 'rtl' | 'ltr' = isArabic ? 'rtl' : 'ltr'
 
   return (
@@ -611,7 +736,7 @@ export function MapViewPage() {
         )}
       </div>
 
-      <header className="absolute left-0 right-0 top-0 z-40 p-4">
+      <header className="absolute inset-x-0 top-0 z-40 p-4">
         <div className={`mx-auto grid max-w-[1200px] grid-cols-3 items-center rounded-2xl border px-4 py-2.5 backdrop-blur-[20px] ${panelBg}`}>
           <div className="justify-self-start">
             <Link
@@ -634,14 +759,14 @@ export function MapViewPage() {
         </div>
       </header>
 
-      <div className="absolute left-4 right-4 top-[84px] z-30 mx-auto max-w-[1200px]">
+      <div className="absolute inset-x-4 top-[84px] z-30 mx-auto max-w-[1200px]">
         <div className={`inline-flex rounded-2xl border p-1 backdrop-blur-[20px] ${panelBg}`}>
           <button
             type="button"
             onClick={() => setActiveTab('planner')}
             className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${activeTab === 'planner' ? chipActive : chipMuted}`}
           >
-            Planner
+            {t('map.planner')}
           </button>
           {hasRealResults && (
             <button
@@ -649,7 +774,7 @@ export function MapViewPage() {
               onClick={() => setActiveTab('results')}
               className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${activeTab === 'results' ? chipActive : chipMuted}`}
             >
-              Results
+              {t('map.results')}
             </button>
           )}
         </div>
@@ -664,37 +789,42 @@ export function MapViewPage() {
             className={`absolute ${plannerAnchor} top-[132px] z-30 w-[min(448px,calc(100vw-2rem))] rounded-2xl border p-3 backdrop-blur-[20px] ${panelBg}`}
           >
             <div className="planner-stack relative">
-                  <div className={`pointer-events-none absolute top-[56px] h-[90px] w-px border-l border-dashed border-toxic/55 ${isArabic ? 'right-[18px]' : 'left-[18px]'}`} />
-                  <SmartLocationInput
-                    origin={origin}
-                    destination={destination}
-                    onOriginChange={(p) => {
-                      setOrigin(p)
-                      setAnalyzeTriggered(false)
-                      setSelectedRouteId(null)
-                      clearAllPolys()
-                    }}
-                    onDestinationChange={(p) => {
-                      setDestination(p)
-                      setAnalyzeTriggered(false)
-                      setSelectedRouteId(null)
-                      clearAllPolys()
-                    }}
-                    favorites={savedLocations}
-                    onSaveLocation={(p) => saveLocation({ label: p.display.split(',')[0], address: p.display, lat: p.lat, lng: p.lng })}
-                    labels={{
-                      from: `${origin ? '● ' : ''}${t('map.from') || 'From'}`,
-                      to: `${destination ? '● ' : ''}${t('map.to') || 'To'}`,
-                      fromPlaceholder: 'Set Start (A)',
-                      toPlaceholder: 'Set Destination (B)',
-                    }}
-                    apiReady={mapReady}
-                  />
-                </div>
+              <div className={`pointer-events-none absolute top-[56px] h-[90px] w-px border-s border-dashed border-toxic/55 start-[18px]`} />
+              <SmartLocationInput
+                origin={origin}
+                destination={destination}
+                onOriginChange={(p) => {
+                  setOrigin(p)
+                  setAnalyzeTriggered(false)
+                  setSelectedRouteId(null)
+                  clearAllPolys()
+                }}
+                onDestinationChange={(p) => {
+                  setDestination(p)
+                  setAnalyzeTriggered(false)
+                  setSelectedRouteId(null)
+                  clearAllPolys()
+                }}
+                favorites={savedLocations}
+                onSaveLocation={(p) => saveLocation({ label: p.display.split(',')[0], address: p.display, lat: p.lat, lng: p.lng })}
+                labels={{
+                  from: `${origin ? '● ' : ''}${t('map.from') || 'From'}`,
+                  to: `${destination ? '● ' : ''}${t('map.to') || 'To'}`,
+                  fromPlaceholder: t('map.setStart'),
+                  toPlaceholder: t('map.setDest'),
+                }}
+                apiReady={mapReady}
+              />
+            </div>
 
-                <div className="mt-2">
-                  <CalculateButton onClick={handleAnalyze} disabled={!origin || !destination} loading={directions.status === 'loading'} />
-                </div>
+            <div className="mt-4">
+              <CalculateButton 
+                onClick={handleAnalyze} 
+                disabled={!origin || !destination} 
+                loading={directions.status === 'loading'} 
+                isDark={isDark}
+              />
+            </div>
           </motion.section>
         )}
       </AnimatePresence>
@@ -719,7 +849,7 @@ export function MapViewPage() {
                     : chipMuted
                 }`}
               >
-                <span className="mr-1 inline-flex align-middle"><MapPin size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
+                <span className="me-1 inline-flex align-middle"><MapPin size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
                 {mode === 'origin' ? 'A' : 'B'}
               </motion.button>
             ))}
@@ -731,8 +861,8 @@ export function MapViewPage() {
               whileHover={{ scale: 1.03 }}
               className={`rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${isDark ? 'border-toxic/35 bg-[rgba(54,255,151,0.08)] text-toxic' : 'border-toxic/45 bg-[rgba(54,255,151,0.12)] text-emerald-700'}`}
             >
-              <span className="mr-1 inline-flex align-middle"><Crosshair size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
-              {myLocationBusy ? 'Locating…' : 'My Location'}
+              <span className="me-1 inline-flex align-middle"><Crosshair size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
+              {myLocationBusy ? t('map.locating') : t('map.myLocation')}
             </motion.button>
           </div>
         </div>
@@ -743,8 +873,8 @@ export function MapViewPage() {
 
 
       {previewStats && !hasRealResults && (
-        <div className={`absolute bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-2xl border px-4 py-2 text-xs backdrop-blur-[20px] ${panelBg}`}>
-          Live Preview · <span dir="ltr">~{previewStats.distanceKm.toFixed(1)} km</span> · <span dir="ltr">{previewStats.durationMin} min</span>
+        <div className={`absolute bottom-6 inset-x-0 mx-auto z-30 w-fit rounded-2xl border px-4 py-2 text-xs font-bold backdrop-blur-[20px] ${panelBg}`}>
+          {t('map.livePreview')} · <span dir="ltr" className="text-emerald-700">~{previewStats.distanceKm.toFixed(1)} {t('map.dist')}</span> · <span dir="ltr" className="text-emerald-700">{previewStats.durationMin} {t('map.time')}</span>
         </div>
       )}
 
@@ -754,36 +884,23 @@ export function MapViewPage() {
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 32 }}
-            className={`absolute bottom-6 left-4 right-4 z-30 mx-auto w-full transition-all duration-500 ${isCopilotOpen ? 'max-w-[calc(100%-460px)] mr-auto ml-4 sm:ml-6' : 'max-w-[1000px]'}`}
+            className={`absolute bottom-6 inset-x-4 z-30 mx-auto w-full transition-all duration-500 ${isCopilotOpen ? 'max-w-[calc(100%-460px)] me-auto ms-4 sm:ms-6' : 'max-w-[1000px]'}`}
           >
             <div className={`grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-2xl border p-3 backdrop-blur-[24px] shadow-2xl ${panelBg}`}>
-              {(() => {
-                // Build guaranteed 3 fixed slots: [FAST, ECO, BALANCED]
-                const fastRoute  = liveRoutes.find(r => r.id === 'fast') ?? liveRoutes.find(r => r.id === 'eco') ?? null
-                const ecoRoute   = liveRoutes.find(r => r.id === 'eco')  ?? null
-                const balRoute   = liveRoutes.find(r => r.id === 'cheap') ?? null
-
-                const slots: Array<{ route: RouteOption | null; label: string; colorIdx: number }> = [
-                  { route: fastRoute,  label: 'FASTEST',      colorIdx: 0 },
-                  { route: ecoRoute,   label: 'ECO-FRIENDLY', colorIdx: 1 },
-                  { route: balRoute,   label: 'BALANCED',     colorIdx: 2 },
-                ]
-
-                return slots.map(({ route: r, label, colorIdx }) =>
-                  r ? (
-                    <RouteCard
-                      key={r.id + label}
-                      route={r}
-                      selected={selectedRoute?.id === r.id}
-                      onSelect={() => setSelectedRouteId(r.id)}
-                      onAnalyze={() => { setSelectedRouteId(r.id); setIsCopilotOpen(true) }}
-                      color={ROUTE_COLORS[colorIdx] ?? '#36FF97'}
-                    />
-                  ) : (
-                    <PlaceholderCard key={label} slotLabel={label} />
-                  )
-                )
-              })()}
+              {categorizedRoutes.map((r, i) => (
+                <RouteCard
+                  key={r.id + i}
+                  route={r}
+                  selected={selectedRouteId === r.id}
+                  onSelect={() => setSelectedRouteId(r.id)}
+                  onAnalyze={() => handleAnalyzeRoute(r)}
+                  analyzing={analysisLoadingId === r.id}
+                  color={ROUTE_COLORS[i] ?? '#36FF97'}
+                  isDark={isDark}
+                />
+              ))}
+              {categorizedRoutes.length === 1 && <PlaceholderCard slotLabel={t('map.fastest')} />}
+              {categorizedRoutes.length === 2 && <PlaceholderCard slotLabel={t('map.alternative')} />}
               <div className="sm:col-span-3 mt-1 pt-2 border-t border-white/10">
                 <button
                   type="button"
@@ -810,6 +927,10 @@ export function MapViewPage() {
           distance: `${selectedRoute.distanceKm.toFixed(1)} km`,
           duration: `${selectedRoute.durationMin} min`
         } : undefined}
+        isDark={isDark}
+        briefing={briefing}
+        metrics={analysisMetrics}
+        currentCharge={localCharge}
       />
 
       
@@ -824,7 +945,7 @@ export function MapViewPage() {
         <div className={`absolute ${controlsAnchor} top-[196px] z-40 w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-amber-400/35 p-3 text-xs backdrop-blur-[20px] ${isDark ? 'bg-black/60 text-amber-200' : 'bg-white/85 text-amber-700'}`}>
           <p className="mb-1 inline-flex items-center gap-1 font-semibold text-amber-300">
             <span><Radar size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
-            Tactical Alert
+            {t('map.tacticalAlert')}
           </p>
           <p>{tacticalAlert}</p>
         </div>

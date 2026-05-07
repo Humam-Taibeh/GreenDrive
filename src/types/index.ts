@@ -15,12 +15,15 @@ export interface RouteOption {
   focus: 'eco' | 'fast' | 'cheap'
   distanceKm: number
   durationMin: number
+  staticDurationMin?: number // NEW: Time without traffic
   fuelLiters: number | null
   co2Kg: number
   savingsPercent: number
   polyline?: Array<{ lat: number; lng: number }>
   /** Net elevation gain in metres — used for terrain-aware scoring */
   ascentM?: number
+  /** Flag for mathematical winner of fuel economy */
+  isCheapest?: boolean
 }
 
 export interface TeamMember {

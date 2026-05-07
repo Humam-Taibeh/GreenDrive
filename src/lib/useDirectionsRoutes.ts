@@ -72,15 +72,12 @@ async function computeRoutesModern(
           const raw = result.routes.slice(0, 3).map((r: any, i: number) => {
             const distanceKm = (r.distanceMeters ?? 0) / 1000
             const durationMin = Math.round(parseInt(r.duration?.replace('s', '') ?? '0') / 60)
+            const staticDurationMin = Math.round(parseInt(r.staticDuration?.replace('s', '') ?? r.duration?.replace('s', '') ?? '0') / 60)
             const polyline = r.polyline?.encodedPolyline 
               ? google.maps.geometry.encoding.decodePath(r.polyline.encodedPolyline).map(p => ({ lat: p.lat(), lng: p.lng() }))
               : []
 
             const ascentM = 60 + i * 20
-            // ✅ P2: Correct efficiency model — fastest route (i=0) drives aggressively = LESS efficient
-            // route_0 (fastest): 0.75 efficiency = more fuel per km (highway speed, hard accel)
-            // route_1 (balanced): 0.82 efficiency = moderate fuel
-            // route_2 (eco):     0.90 efficiency = smooth driving, least fuel
             const efficiencies = [0.75, 0.82, 0.90]
             const emissions = computeTripEmissions(distanceKm, ascentM, efficiencies[i] ?? 0.82, vehicle)
 
@@ -90,6 +87,7 @@ async function computeRoutesModern(
               focus: 'eco' as const,
               distanceKm: Math.round(distanceKm * 10) / 10,
               durationMin,
+              staticDurationMin, // ✅ Captured for traffic waste analysis
               fuelLiters: mode === RTM.DRIVE ? emissions.fuelLiters : 0,
               co2Kg:       mode === RTM.DRIVE ? emissions.co2Kg       : 0,
               savingsPercent: mode === RTM.DRIVE ? 0 : 100,
@@ -157,6 +155,7 @@ async function computeRoutesLegacy(
             focus: 'eco' as const,
             distanceKm: Math.round(distanceKm * 10) / 10,
             durationMin,
+            staticDurationMin: durationMin, // Legacy fallback
             fuelLiters: emissions.fuelLiters,
             co2Kg:      emissions.co2Kg,
             savingsPercent: 0,
@@ -178,6 +177,13 @@ async function computeRoutesLegacy(
  * - Soft dedup: only removes routes with near-identical polylines (not dominated ones).
  * - Synthetic fill: if < 3 real routes, generates plausible variants for the 3rd slot.
  */
+/**
+ * Derive eco-labelling for routes returned by Directions API.
+ *
+ * GUARANTEE: Always returns exactly 3 route slots.
+ * - Physics-first: real co2Kg/fuelLiters from construction are preserved.
+ * - Dynamic Logic: Prevents "Eco-Friendly" labels on routes that use more fuel than Optimal.
+ */
 function labelRoutes(raw: RouteOption[], vehicle: VehicleType): RouteOption[] {
   if (raw.length === 0) return []
 
@@ -192,95 +198,98 @@ function labelRoutes(raw: RouteOption[], vehicle: VehicleType): RouteOption[] {
     if (!isDupe) deduped.push(candidate)
   }
 
-  // Step 2: Identify winners via real physics data
+  // Step 2: Identify absolute physics winners
   const byTime = [...deduped].sort((a, b) => a.durationMin - b.durationMin)
   const byCo2  = [...deduped].sort((a, b) => (a.co2Kg ?? Infinity) - (b.co2Kg ?? Infinity))
 
-  const fastestCandidate = byTime[0]!
-  const ecoCandidate     = byCo2[0]!
-  const isSameRoute      = fastestCandidate === ecoCandidate
+  const fastest = byTime[0]!
+  const greenest = byCo2[0]!
+  
+  // Paradox Protection: If fastest is also greenest, it is "Optimal"
+  const isOptimal = fastest.id === greenest.id
 
   let fastSlot: RouteOption | null = null
   let ecoSlot:  RouteOption | null = null
   let balSlot:  RouteOption | null = null
 
-  if (isSameRoute) {
-    // Route is both fastest AND greenest → OPTIMAL slot (uses 'fast' id so HUD grid finds it)
-    fastSlot = {
-      ...fastestCandidate,
-      id: 'fast',
-      label: 'Optimal Route',
-      focus: 'fast',
+  if (isOptimal) {
+    // Card 1 is Optimal
+    fastSlot = { 
+      ...fastest, 
+      id: 'fast', 
+      label: 'Optimal Route', 
+      focus: 'fast' 
     }
-    // Try to fill ECO from remaining real routes
-    const remaining = deduped.filter(r => r !== fastestCandidate)
+    
+    const remaining = deduped.filter(r => r.id !== fastest.id)
     if (remaining.length > 0) {
-      const nextEco = [...remaining].sort((a, b) => (a.co2Kg ?? Infinity) - (b.co2Kg ?? Infinity))[0]!
-      ecoSlot = { ...nextEco, id: 'eco', label: 'Eco-Friendly Choice', focus: 'eco' }
-      const nextBal = remaining.find(r => r !== nextEco)
-      balSlot = nextBal
-        ? { ...nextBal, id: 'cheap', label: 'Balanced Option', focus: 'cheap' }
-        : null
-    }
-    // Synthesize ECO if Google only returned 1 path
-    if (!ecoSlot) {
-      const base = fastestCandidate
-      // Eco variant: same distance but smooth driving style (eff 0.90 vs fast's 0.75)
-      const ecoEmissions = computeTripEmissions(base.distanceKm, (base.ascentM ?? 60) + 10, 0.90, vehicle)
-      ecoSlot = {
-        id: 'eco',
-        label: 'Eco-Friendly Choice',
-        focus: 'eco',
-        distanceKm: base.distanceKm,
-        durationMin: Math.round(base.durationMin * 1.09), // 9% slower — smoother driving
-        fuelLiters: ecoEmissions.fuelLiters,
-        co2Kg: ecoEmissions.co2Kg,
-        savingsPercent: 0,
-        polyline: base.polyline,
-        ascentM: (base.ascentM ?? 60) + 10,
+      // Card 2 must be BALANCED, not ECO (since card 1 is the greenest)
+      balSlot = { ...remaining[0], id: 'cheap', label: 'Balanced Option', focus: 'cheap' }
+      if (remaining.length > 1) {
+        // Card 3 is Alt
+        ecoSlot = { ...remaining[1], id: 'eco_alt', label: 'Alternative Route', focus: 'cheap' }
       }
     }
   } else {
-    // Distinct fastest and eco routes — assign directly
-    fastSlot = { ...fastestCandidate, id: 'fast', label: 'Fastest Route', focus: 'fast' }
-    ecoSlot  = { ...ecoCandidate,     id: 'eco',  label: 'Eco-Friendly Choice', focus: 'eco' }
-    const remaining = deduped.filter(r => r !== fastestCandidate && r !== ecoCandidate)
+    // Card 1 is Fastest
+    fastSlot = { ...fastest, id: 'fast', label: 'Fastest Route', focus: 'fast' }
+    // Card 2 is Eco (only if strictly better than fast)
+    ecoSlot = { ...greenest, id: 'eco', label: 'Eco-Friendly Choice', focus: 'eco' }
+    
+    const remaining = deduped.filter(r => r.id !== fastest.id && r.id !== greenest.id)
     if (remaining.length > 0) {
-      balSlot = { ...remaining[0]!, id: 'cheap', label: 'Balanced Option', focus: 'cheap' }
+      balSlot = { ...remaining[0], id: 'cheap', label: 'Balanced Option', focus: 'cheap' }
     }
   }
 
-  // Step 3: Guarantee BALANCED slot
+  // Step 3: Synthesis for missing slots
   if (!balSlot) {
-    // Base BALANCED on ECO (not FAST), so it sits between them in fuel use
-    const base = ecoSlot!
+    const base = ecoSlot || fastSlot!
     const balDistance = Math.round(base.distanceKm * 1.04 * 10) / 10
-    const balAscent   = (base.ascentM ?? 60) + 15
-    const balEmissions = computeTripEmissions(balDistance, balAscent, 0.82, vehicle)
+    const balEmissions = computeTripEmissions(balDistance, (base.ascentM ?? 60) + 15, 0.82, vehicle)
     balSlot = {
       id: 'cheap',
       label: 'Balanced Option',
       focus: 'cheap',
       distanceKm: balDistance,
       durationMin: Math.round(base.durationMin * 1.06),
+      staticDurationMin: Math.round(base.staticDurationMin ?? base.durationMin),
       fuelLiters: balEmissions.fuelLiters,
       co2Kg: balEmissions.co2Kg,
       savingsPercent: 0,
       polyline: base.polyline,
-      ascentM: balAscent,
+      ascentM: (base.ascentM ?? 60) + 15,
+    }
+  }
+  
+  if (!ecoSlot) {
+    const base = fastSlot!
+    const ecoEmissions = computeTripEmissions(base.distanceKm, (base.ascentM ?? 60) + 10, 0.92, vehicle)
+    ecoSlot = {
+      id: 'eco_alt',
+      label: 'Alternative Route',
+      focus: 'cheap',
+      distanceKm: base.distanceKm,
+      durationMin: Math.round(base.durationMin * 1.05),
+      staticDurationMin: base.durationMin,
+      fuelLiters: ecoEmissions.fuelLiters,
+      co2Kg: ecoEmissions.co2Kg,
+      savingsPercent: 0,
+      polyline: base.polyline,
+      ascentM: (base.ascentM ?? 60) + 10,
     }
   }
 
-  const three: RouteOption[] = [fastSlot!, ecoSlot!, balSlot]
+  const result = [fastSlot!, ecoSlot!, balSlot].slice(0, 3)
 
-  // Step 4: Compute savingsPercent — baseline is FAST co2 (may be OPTIMAL, so 0% for itself)
-  const baselineCo2 = fastSlot!.co2Kg > 0 ? fastSlot!.co2Kg : (ecoSlot?.co2Kg ?? 1)
-  return three.map((r) => ({
+  // Step 4: Final calculation for savings and "cheapest" flag
+  const minCo2 = Math.min(...result.map(r => r.co2Kg))
+  const baselineCo2 = fastSlot!.co2Kg || 1
+
+  return result.map((r) => ({
     ...r,
-    savingsPercent:
-      baselineCo2 > 0
-        ? Math.max(0, Math.round(((baselineCo2 - r.co2Kg) / baselineCo2) * 100))
-        : 0,
+    isCheapest: r.co2Kg === minCo2,
+    savingsPercent: Math.max(0, Math.round(((baselineCo2 - r.co2Kg) / baselineCo2) * 100))
   }))
 }
 

@@ -25,7 +25,7 @@ const LocaleContext = createContext<LocaleCtx | null>(null)
 
 function readStoredLocale(): LocaleCode {
   try {
-    const s = localStorage.getItem('greendrive-locale') as LocaleCode | null
+    const s = localStorage.getItem('gd-locale') as LocaleCode | null
     if (s === 'en' || s === 'ar') return s
   } catch {
     /* ignore */
@@ -39,7 +39,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const setLocale = useCallback((l: LocaleCode) => {
     setLocaleState(l)
     try {
-      localStorage.setItem('greendrive-locale', l)
+      localStorage.setItem('gd-locale', l)
     } catch {
       /* ignore */
     }

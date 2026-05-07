@@ -30,7 +30,7 @@ function getSystem(): Resolved {
 
 function readStoredTheme(fallback: ThemePreference): ThemePreference {
   try {
-    const s = localStorage.getItem('greendrive-theme') as ThemePreference | null
+    const s = localStorage.getItem('gd-theme') as ThemePreference | null
     if (s === 'dark' || s === 'light' || s === 'system') return s
   } catch {
     /* ignore */
@@ -69,7 +69,7 @@ export function ThemeProvider({
   const setPreference = useCallback((t: ThemePreference) => {
     setPreferenceState(t)
     try {
-      localStorage.setItem('greendrive-theme', t)
+      localStorage.setItem('gd-theme', t)
     } catch {
       /* ignore */
     }

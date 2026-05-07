@@ -10,7 +10,12 @@ import type { ChatMessage } from '../../types'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useLocale } from '../../contexts/LocaleContext'
-import { computeTripEmissions, type VehicleType } from '../../lib/vehicleProfiles'
+import { 
+  computeTripEmissions, 
+  calculateTrafficWaste, 
+  projectYearlyImpact,
+  type VehicleType 
+} from '../../lib/vehicleProfiles'
 
 function RobotIcon({ className = '' }: { className?: string }) {
   return (
@@ -40,7 +45,7 @@ function RobotIcon({ className = '' }: { className?: string }) {
         <circle cx="16" cy="5" r="2" fill="#36ff97" />
       </m.svg>
       <m.span
-        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-toxic shadow-[0_0_10px_#36ff97]"
+        className="absolute -end-0.5 -top-0.5 h-2 w-2 rounded-full bg-toxic shadow-[0_0_10px_#36ff97]"
         animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 1.4, repeat: Infinity }}
       />
@@ -59,6 +64,10 @@ export interface GeminiCopilotProps {
     distance: string
     duration: string
   }
+  isDark?: boolean
+  briefing?: string | null
+  metrics?: any
+  currentCharge?: number
 }
 
 export function GeminiCopilot({ 
@@ -67,12 +76,16 @@ export function GeminiCopilot({
   selectedRoute, 
   destination,
   hasActiveRoute,
-  activeRouteData 
+  activeRouteData,
+  isDark: externalIsDark,
+  briefing,
+  metrics,
+  currentCharge: externalCharge
 }: GeminiCopilotProps) {
   const { profile, user } = useAuth()
   const { resolvedTheme } = useTheme()
   const { t, locale } = useLocale()
-  const dark = resolvedTheme === 'dark'
+  const dark = externalIsDark !== undefined ? externalIsDark : resolvedTheme === 'dark'
 
   const [internalOpen, setInternalOpen] = useState(false)
   const open = externalOpen !== undefined ? externalOpen : internalOpen
@@ -93,9 +106,9 @@ export function GeminiCopilot({
       destination,
       hasActiveRoute,
       activeRouteData,
-      currentChargePercent: profile?.currentChargePercent ?? 85,
+      currentChargePercent: externalCharge ?? profile?.currentChargePercent ?? 85,
     }),
-    [profile, user, locale, destination, hasActiveRoute, activeRouteData]
+    [profile, user, locale, destination, hasActiveRoute, activeRouteData, externalCharge]
   )
 
   const welcomeText = useMemo(() => {
@@ -114,6 +127,7 @@ export function GeminiCopilot({
 
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [activeMetrics, setActiveMetrics] = useState<any>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'w', role: 'assistant', text: '', at: 0 },
   ])
@@ -124,111 +138,27 @@ export function GeminiCopilot({
     [messages, welcomeText]
   )
 
+  // P2: Handle the consolidated briefing from parent
+  useEffect(() => {
+    if (briefing && !messages.some(m => m.text === briefing)) {
+      setMessages(prev => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'assistant', text: briefing, at: Date.now() }
+      ])
+    }
+  }, [briefing])
+
+  // Sync metrics for follow-up turns
+  useEffect(() => {
+    if (metrics) setActiveMetrics(metrics)
+  }, [metrics])
+
   useEffect(() => {
     if (!open) return
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [displayMessages, open, loading])
 
-  const lastAnalyzedRouteId = useRef<string | null>(null)
-  const analyzeAbortRef     = useRef<AbortController | null>(null)
-  const analyzeTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isRequestPending    = useRef(false)   // mutex — prevents concurrent API calls
-
-  // Automated analysis — fires ONLY when selectedRoute.id genuinely changes AND copilot is open.
-  // Debounced: the API call is deferred 900ms so rapid route switches don't spam the endpoint.
-  useEffect(() => {
-    if (!selectedRoute || !open) return
-    if (lastAnalyzedRouteId.current === selectedRoute.id) return
-
-    // ✅ P1: Cancel any pending debounce timer from a previous (rapid) trigger
-    if (analyzeTimerRef.current !== null) {
-      clearTimeout(analyzeTimerRef.current)
-      analyzeTimerRef.current = null
-    }
-
-    // Snapshot all values synchronously before the debounce window
-    const routeSnapshot   = { ...selectedRoute }
-    const vehicleType     = (profile?.vehicleType as VehicleType) || 'petrol'
-    const copilotSnapshot = { ...copilotCtx }
-
-    // Schedule the actual API call after 900ms of inactivity
-    analyzeTimerRef.current = setTimeout(() => {
-      analyzeTimerRef.current = null
-
-      // Second guard: bail if another call slipped through, or route was cleared
-      if (isRequestPending.current) return
-      if (lastAnalyzedRouteId.current === routeSnapshot.id) return  // already done
-
-      // Cancel any in-flight network request from a previous route
-      analyzeAbortRef.current?.abort()
-      const ctrl = new AbortController()
-      analyzeAbortRef.current = ctrl
-      lastAnalyzedRouteId.current = routeSnapshot.id
-
-      const analyze = async () => {
-        isRequestPending.current = true
-        setLoading(true)
-
-        const stats = computeTripEmissions(
-          routeSnapshot.distanceKm,
-          routeSnapshot.ascentM ?? 60,
-          0.85,
-          vehicleType
-        )
-
-        // ✅ Freshly-computed values — never stale route fields
-        const exactCostJOD = stats.costJODStr
-        const exactVolume  = stats.fuelLiters !== null
-          ? `${stats.fuelLiters.toFixed(2)}`
-          : stats.label.replace(' kWh', '')
-        // ✅ Dynamic unit — strictly 'L' or 'kWh', never the literal 'L or kWh'
-        const fuelUnit     = stats.fuelLiters !== null ? 'L' : 'kWh'
-        // ✅ P2: Real consumption number (not 0) passed to system prompt
-        const realFuelConsumed = stats.fuelLiters ?? parseFloat(stats.label)
-
-        const routeType = routeSnapshot.id === 'fast'
-          ? (routeSnapshot.label === 'Optimal Route' ? 'Optimal (Fastest & Greenest)' : 'Fastest')
-          : routeSnapshot.id === 'eco' ? 'Eco-Friendly'
-          : 'Balanced'
-
-        const payload = `The user selected the [${routeType}] route (${routeSnapshot.distanceKm.toFixed(1)} km, ${routeSnapshot.durationMin} min).
-
-CRITICAL DIRECTIVE: You have been provided the EXACT calculated values below. DO NOT perform any math yourself.
-- Fuel/energy consumed: ${exactVolume} ${fuelUnit}  ← USE THIS EXACT NUMBER ONLY
-- Trip cost: EXACTLY ${exactCostJOD} JOD — output this verbatim, do not recalculate
-- CO₂ emitted: ${stats.co2Kg.toFixed(2)} kg
-- Vehicle: ${vehicleType} | Unit: ${fuelUnit} (NEVER output 'L or kWh')
-- Ascent: ~${routeSnapshot.ascentM ?? 60}m elevation gain on this corridor
-
-Provide a 2-3 sentence tactical briefing using ONLY these exact numbers. Quote the cost as "${exactCostJOD} JOD" exactly.
-After the summary, add one short friendly line inviting the user to ask any follow-up questions about this route, fuel savings, CO₂ impact, or driving tips for Jordan's terrain.`
-
-        if (ctrl.signal.aborted) { isRequestPending.current = false; return }
-        const reply = await sendGeminiMessage(payload, {
-          ...copilotSnapshot,
-          copilotRouteMetrics: {
-            selectedRouteId: routeSnapshot.id,
-            distanceKm: routeSnapshot.distanceKm,
-            ascentM: routeSnapshot.ascentM ?? 60,
-            // ✅ P2: Pass real consumption — NOT 0 — so system prompt doesn't contradict user payload
-            fuelSavedLiters: realFuelConsumed,
-            estJodSaved: stats.costJOD,
-          }
-        }, messages)
-
-        if (ctrl.signal.aborted) { isRequestPending.current = false; return }
-        setMessages(prev => {
-          if (prev.some(m => m.text.includes(exactCostJOD))) return prev
-          return [...prev, { id: crypto.randomUUID(), role: 'assistant', text: reply, at: Date.now() }]
-        })
-        isRequestPending.current = false
-        setLoading(false)
-      }
-      void analyze()
-    }, 900)  // ✅ 900ms debounce — API only fires after interaction settles
-
-  // Only stable primitive deps
-  }, [selectedRoute?.id, open, profile?.vehicleType])
+  // Removed automated per-route useEffect (Decommissioned P2)
 
   const send = async () => {
     const text = input.trim()
@@ -238,7 +168,10 @@ After the summary, add one short friendly line inviting the user to ask any foll
     const currentMessages = [...messages, userMsg]
     setMessages(currentMessages)
     setLoading(true)
-    const reply = await sendGeminiMessage(text, copilotCtx, currentMessages)
+    const reply = await sendGeminiMessage(text, {
+      ...copilotCtx,
+      copilotRouteMetrics: activeMetrics // ✅ Restore metrics for follow-up turns
+    }, currentMessages)
     setLoading(false)
     setMessages((m) => [
       ...m,
@@ -251,7 +184,7 @@ After the summary, add one short friendly line inviting the user to ask any foll
 
   return (
     <LazyMotion features={domMax} strict>
-      <div className="pointer-events-none fixed bottom-10 end-4 z-[200] flex flex-col items-end sm:bottom-12 sm:end-6">
+      <div className="pointer-events-none fixed bottom-28 end-4 z-[500] flex flex-col items-end sm:bottom-32 sm:end-6">
         <AnimatePresence>
           {open && (
             <m.div
@@ -295,8 +228,8 @@ After the summary, add one short friendly line inviting the user to ask any foll
                   key={msg.id}
                   className={`rounded-xl px-3 py-2 text-start ${
                     msg.role === 'user'
-                      ? `ms-6 bg-toxic/15 ${dark ? 'text-white' : 'text-zinc-950'}`
-                      : `me-4 border bg-[rgba(255,255,255,0.06)] ${
+                      ? `ms-12 bg-toxic/15 ${dark ? 'text-white' : 'text-zinc-950'}`
+                      : `me-8 border bg-[rgba(255,255,255,0.06)] ${
                           dark
                             ? 'border-white/10 text-white/85'
                             : 'border-black/10 text-zinc-950'
@@ -306,9 +239,9 @@ After the summary, add one short friendly line inviting the user to ask any foll
                   {msg.text}
                 </div>
               ))}
-              {loading && <p className="text-xs text-toxic/80">{t('cop.thinking')}</p>}
+              {loading && <p className="text-xs text-toxic/80 ms-4">{t('cop.thinking')}</p>}
             </div>
-            <div className={`flex gap-2 border-t p-3 ${dark ? 'border-white/10' : 'border-black/10'}`}>
+            <div className={`flex gap-2 border-t p-3 overflow-hidden ${dark ? 'border-white/10' : 'border-black/10'}`}>
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

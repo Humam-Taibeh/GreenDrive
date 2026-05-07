@@ -17,7 +17,9 @@ export function useHydratePreferencesFromProfile() {
     if (loading || !profile) return
     if (lastUid.current === profile.uid) return
     lastUid.current = profile.uid
-    setPreference(profile.preferences.theme)
-    setLocale(profile.preferences.locale)
+    
+    // Only hydrate if different to avoid reset loops
+    if (profile.preferences.theme) setPreference(profile.preferences.theme)
+    if (profile.preferences.locale) setLocale(profile.preferences.locale)
   }, [loading, profile, setPreference, setLocale])
 }

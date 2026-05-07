@@ -325,6 +325,7 @@ RESPONSE RULES:
 2. Be concise (2-4 sentences). Data-driven. Use unit: ${fuelUnit}.
 3. Reference Amman terrain (Sweileh, Abdoun hills) when ascent data is present.
 4. Complete every sentence. Never cut off mid-thought.
+5. LANGUAGE RULE: You MUST respond in ${isAr ? 'Arabic (اللغة العربية)' : 'English'}. Even if the user writes in another language, your reply must be in ${isAr ? 'Arabic' : 'English'} to match the site UI.
   `.trim()
 
 
