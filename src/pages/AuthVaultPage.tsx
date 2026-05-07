@@ -56,7 +56,7 @@ export function AuthVaultPage() {
   }
 
   if (user) {
-    return <Navigate to="/map" replace />
+    return <Navigate to="/" replace />
   }
 
   return (

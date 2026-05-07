@@ -70,9 +70,11 @@ async function computeRoutesModern(
           }
 
           const raw = result.routes.slice(0, 3).map((r: any, i: number) => {
-            const distanceKm = (r.distanceMeters ?? 0) / 1000
-            const durationMin = Math.round(parseInt(r.duration?.replace('s', '') ?? '0') / 60)
-            const staticDurationMin = Math.round(parseInt(r.staticDuration?.replace('s', '') ?? r.duration?.replace('s', '') ?? '0') / 60)
+            const distanceKm = Math.max((r.distanceMeters ?? 0) / 1000, 0)
+            const durationSec = parseInt(r.duration?.replace('s', '') ?? '0', 10)
+            const staticSec   = parseInt(r.staticDuration?.replace('s', '') ?? r.duration?.replace('s', '') ?? '0', 10)
+            const durationMin = Math.round((isNaN(durationSec) ? 0 : durationSec) / 60)
+            const staticDurationMin = Math.round((isNaN(staticSec) ? durationSec : staticSec) / 60)
             const polyline = r.polyline?.encodedPolyline 
               ? google.maps.geometry.encoding.decodePath(r.polyline.encodedPolyline).map(p => ({ lat: p.lat(), lng: p.lng() }))
               : []
@@ -141,8 +143,9 @@ async function computeRoutesLegacy(
 
         const raw = result.routes.slice(0, 3).map((r, i) => {
           const leg = r.legs[0]
-          const distanceKm  = (leg?.distance?.value ?? 0) / 1000
-          const durationMin = Math.round((leg?.duration?.value ?? 0) / 60)
+          const distanceKm  = Math.max((leg?.distance?.value ?? 0) / 1000, 0)
+          const durationSec = leg?.duration?.value ?? 0
+          const durationMin = Math.round(durationSec / 60)
           const polyline    = r.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }))
           const ascentM     = 60 + i * 20
           // ✅ Same corrected efficiency model as modern engine
@@ -244,8 +247,8 @@ function labelRoutes(raw: RouteOption[], vehicle: VehicleType): RouteOption[] {
 
   // Step 3: Synthesis for missing slots
   if (!balSlot) {
-    const base = ecoSlot || fastSlot!
-    const balDistance = Math.round(base.distanceKm * 1.04 * 10) / 10
+    const base = ecoSlot ?? fastSlot!
+    const balDistance = Math.max(Math.round(base.distanceKm * 1.04 * 10) / 10, 0.1)
     const balEmissions = computeTripEmissions(balDistance, (base.ascentM ?? 60) + 15, 0.82, vehicle)
     balSlot = {
       id: 'cheap',

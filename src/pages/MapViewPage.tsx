@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BatteryCharging, Bot, Car, Crosshair, Leaf, MapPin, Radar, Truck } from 'lucide-react'
+import { Bot, Crosshair, MapPin, Radar } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BrandLogo } from '../components/brand/BrandLogo'
 import { SmartLocationInput } from '../components/cards/SmartLocationInput'
@@ -155,7 +155,7 @@ const PlaceholderCard = memo(function PlaceholderCard({ slotLabel }: { slotLabel
 export function MapViewPage() {
   const { t, locale } = useLocale()
   const { resolvedTheme } = useTheme()
-  const { profile, user } = useAuth()
+  const { profile } = useAuth()
   const { savedLocations, saveLocation } = useSavedLocations()
   const isArabic = locale === 'ar'
   const isDark = resolvedTheme === 'dark' || document.documentElement.classList.contains('dark')
@@ -184,7 +184,6 @@ export function MapViewPage() {
   const [mapReady, setMapReady] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const [myLocationBusy, setMyLocationBusy] = useState(false)
-  const [plannerExpanded, setPlannerExpanded] = useState(true)
   const [isCopilotOpen, setIsCopilotOpen] = useState(false)
   const [briefing, setBriefing] = useState<string | null>(null)
   const [analysisLoadingId, setAnalysisLoadingId] = useState<string | null>(null)
@@ -192,10 +191,10 @@ export function MapViewPage() {
   const [localCharge, setLocalCharge] = useState<number>(() => {
     try {
       const s = localStorage.getItem('gd-charge')
-      return s ? parseInt(s) : 85
+      return s ? parseInt(s, 10) : 85
     } catch { return 85 }
   })
-  const lastBriefedRoutes = useRef<string>('')
+  const analysisAbortRef = useRef<AbortController | null>(null)
 
   // Sync local charge if profile updates
   useEffect(() => {
@@ -271,47 +270,72 @@ export function MapViewPage() {
   const categorizedRoutes = useMemo(() => {
     if (liveRoutes.length === 0) return []
 
-    // 1. Pre-calculate metrics for all routes to find extremes
     const routesWithMetrics = liveRoutes.map(r => {
-      const stats = computeTripEmissions(r.distanceKm, r.ascentM ?? 60, 0.85, vehicle)
+      const stats = computeTripEmissions(Math.max(r.distanceKm || 0, 0.1), r.ascentM ?? 60, 0.85, vehicle)
       return {
         ...r,
-        fuelVolume: stats.fuelLiters ?? parseFloat(stats.label),
-        cost: stats.costJOD
+        fuelVolume: (stats.fuelLiters ?? parseFloat(stats.label)) || 0,
+        cost: stats.costJOD || 0
       }
     })
 
     const minTime = Math.min(...routesWithMetrics.map(r => r.durationMin))
     const minFuel = Math.min(...routesWithMetrics.map(r => r.fuelVolume))
 
+    const timeTied = routesWithMetrics.filter(r => r.durationMin === minTime)
+    const fuelTied = routesWithMetrics.filter(r => r.fuelVolume === minFuel)
+
+    const fastestWinnerId = timeTied.reduce((best, r) =>
+      r.fuelVolume < best.fuelVolume ? r : best
+    , timeTied[0]!).id
+
+    const greenestWinnerId = fuelTied.reduce((best, r) =>
+      r.durationMin < best.durationMin ? r : best
+    , fuelTied[0]!).id
+
+    const isOptimal = fastestWinnerId === greenestWinnerId
+
+    const assignedExclusive = new Set<string>()
     let alternativeCount = 0
 
-    // 2. Assign dynamic category titles based on physics
     return routesWithMetrics.map(r => {
-      const isFastest = r.durationMin === minTime
-      const isGreenest = r.fuelVolume === minFuel
+      const isTheFastest = r.id === fastestWinnerId
+      const isTheGreenest = r.id === greenestWinnerId
 
-      let titleKey = 'map.alternative'
+      let titleKey = 'map.balanced'
       let descKey = 'map.descBalanced'
 
-      if (isFastest && isGreenest) {
-        titleKey = 'map.optimal'
-        descKey = 'map.descOptimal'
-      } else if (isFastest) {
-        titleKey = 'map.fastest'
-        descKey = 'map.descFastest'
-      } else if (isGreenest) {
-        titleKey = 'map.ecoFriendly'
-        descKey = 'map.descEco'
+      if (isOptimal && isTheFastest) {
+        if (!assignedExclusive.has('optimal')) {
+          titleKey = 'map.optimal'
+          descKey = 'map.descOptimal'
+          assignedExclusive.add('optimal')
+        } else {
+          alternativeCount++
+        }
+      } else if (isTheFastest) {
+        if (!assignedExclusive.has('fastest')) {
+          titleKey = 'map.fastest'
+          descKey = 'map.descFastest'
+          assignedExclusive.add('fastest')
+        } else {
+          alternativeCount++
+        }
+      } else if (isTheGreenest) {
+        if (!assignedExclusive.has('eco')) {
+          titleKey = 'map.ecoFriendly'
+          descKey = 'map.descEco'
+          assignedExclusive.add('eco')
+        } else {
+          alternativeCount++
+        }
       } else {
-        titleKey = 'map.balanced'
         alternativeCount++
       }
 
       const baseTitle = t(titleKey as any)
-      // Append number only if multiple balanced routes exist
-      const finalTitle = (titleKey === 'map.balanced' && alternativeCount > 1) 
-        ? `${baseTitle} ${alternativeCount}` 
+      const finalTitle = (titleKey === 'map.balanced' && alternativeCount > 1)
+        ? `${baseTitle} ${alternativeCount}`
         : baseTitle
 
       return {
@@ -320,26 +344,34 @@ export function MapViewPage() {
         descriptor: t(descKey as any)
       }
     })
-  }, [liveRoutes, vehicle, t, isArabic])
+  }, [liveRoutes, vehicle, t])
 
   const handleAnalyzeRoute = async (route: any) => {
     if (analysisLoadingId) return
+    analysisAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    analysisAbortRef.current = ctrl
+
     setAnalysisLoadingId(route.id)
     setIsCopilotOpen(true)
-    
-    const stats = computeTripEmissions(route.distanceKm, route.ascentM ?? 60, 0.85, vehicle)
-    
-    // NEW: Realistic Advanced Analytics for the Jordan Corridor
-    const waste = calculateTrafficWaste(route.durationMin, route.staticDurationMin ?? route.durationMin, vehicle)
-    const yearly = projectYearlyImpact(stats.costJOD, stats.co2Kg)
 
-    const payload = `Analyze this ${route.categoryTitle} route:
-- Distance: ${route.distanceKm.toFixed(1)} km
-- Time: ${route.durationMin} min
-- Energy/Fuel: ${stats.fuelLiters?.toFixed(2) || stats.label} ${stats.fuelLiters ? 'L' : 'kWh'}
-- Cost: ${stats.costJODStr} JOD
-- CO2: ${stats.co2Kg.toFixed(2)} kg
-- Ascent: ${route.ascentM ?? 60} m
+    const distKm = Math.max(route.distanceKm || 0, 0.1)
+    const ascentM = route.ascentM ?? 60
+    const stats = computeTripEmissions(distKm, ascentM, 0.85, vehicle)
+    const waste = calculateTrafficWaste(route.durationMin || 0, route.staticDurationMin ?? route.durationMin ?? 0, vehicle)
+    const yearly = projectYearlyImpact(stats.costJOD || 0, stats.co2Kg || 0)
+
+    const fuelDisplay = stats.fuelLiters != null ? `${stats.fuelLiters.toFixed(2)} L` : stats.label
+    const costDisplay = stats.costJODStr || '0.00'
+    const co2Display = (stats.co2Kg || 0).toFixed(2)
+
+    const payload = `Analyze this ${route.categoryTitle ?? 'route'}:
+- Distance: ${distKm.toFixed(1)} km
+- Time: ${route.durationMin ?? 0} min
+- Energy/Fuel: ${fuelDisplay}
+- Cost: ${costDisplay} JOD
+- CO2: ${co2Display} kg
+- Ascent: ${ascentM} m
 
 TACTICAL SUSTAINABILITY METRICS (Yearly/Traffic):
 - Yearly Projection: If taken daily, this trip costs ${yearly.jod} JOD/year and emits ${yearly.co2} kg CO2.
@@ -348,31 +380,35 @@ ${waste ? `- Traffic Waste: You are losing ${waste.jodStr} JOD specifically to i
 
 Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for this Jordan trip. Use only the provided numbers. Mention Amman terrain if ascent > 100m.`
 
-    // P2: Pass copilotRouteMetrics to fix "N/A" cost in AI analysis
     const metrics: CopilotRouteMetrics = {
-      fuelSavedLiters: stats.fuelLiters ?? parseFloat(stats.label),
-      ascentM: route.ascentM ?? 60,
-      estJodSaved: stats.costJOD,
+      fuelSavedLiters: (stats.fuelLiters ?? parseFloat(stats.label)) || 0,
+      ascentM,
+      estJodSaved: stats.costJOD || 0,
       selectedRouteId: route.id,
+      distanceKm: distKm,
     }
 
-    const reply = await sendGeminiMessage(payload, {
-      firstName: profile?.firstName,
-      vehicleType: vehicle,
-      locale: locale as any,
-      destination: destination?.display,
-      hasActiveRoute: true,
-      activeRouteData: {
-        type: route.categoryTitle,
-        distance: `${route.distanceKm.toFixed(1)} km`,
-        duration: `${route.durationMin} min`
-      },
-      copilotRouteMetrics: metrics
-    })
-    
-    setBriefing(reply)
-    setAnalysisMetrics(metrics)
-    setAnalysisLoadingId(null)
+    try {
+      const reply = await sendGeminiMessage(payload, {
+        firstName: profile?.firstName,
+        vehicleType: vehicle,
+        locale: locale as any,
+        destination: destination?.display,
+        hasActiveRoute: true,
+        activeRouteData: {
+          type: route.categoryTitle ?? 'Route',
+          distance: `${distKm.toFixed(1)} km`,
+          duration: `${route.durationMin ?? 0} min`
+        },
+        copilotRouteMetrics: metrics
+      })
+      if (ctrl.signal.aborted) return
+      setBriefing(reply)
+      setAnalysisMetrics(metrics)
+    } catch {
+    } finally {
+      if (!ctrl.signal.aborted) setAnalysisLoadingId(null)
+    }
   }
 
   const hasRealResults = analyzeTriggered && liveRoutes.length > 0
@@ -382,35 +418,6 @@ Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for thi
     liveRoutes[0] ??
     null
 
-
-  const copilotRouteMetrics = useMemo((): CopilotRouteMetrics | undefined => {
-    if (!selectedRoute || liveRoutes.length === 0) return undefined
-    const selectedEm = computeTripEmissions(
-      selectedRoute.distanceKm,
-      selectedRoute.ascentM ?? 70,
-      selectedRoute.id === 'eco' ? 0.92 : selectedRoute.id === 'fast' ? 0.72 : 0.85,
-      vehicle,
-    )
-    const fastest = liveRoutes.find((r) => r.id === 'fast') ?? liveRoutes[0]
-    const fastEm = computeTripEmissions(
-      fastest.distanceKm,
-      fastest.ascentM ?? 70,
-      fastest.id === 'eco' ? 0.92 : fastest.id === 'fast' ? 0.72 : 0.85,
-      vehicle,
-    )
-    const fuelSaved =
-      selectedEm.fuelLiters !== null && fastEm.fuelLiters !== null
-        ? Math.max(0, fastEm.fuelLiters - selectedEm.fuelLiters)
-        : 0
-    const estFuelPricePerLiterJod = 0.95
-    const jodSaved = fuelSaved * estFuelPricePerLiterJod
-    return {
-      fuelSavedLiters: fuelSaved,
-      ascentM: Math.round(selectedRoute.ascentM ?? 70),
-      estJodSaved: jodSaved,
-      selectedRouteId: selectedRoute.id,
-    }
-  }, [liveRoutes, selectedRoute, vehicle])
 
   const previewStats = useMemo(() => {
     if (!origin || !destination) return null
@@ -437,23 +444,7 @@ Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for thi
     })
   }, [])
 
-  const geocodeAddress = useCallback(async (query: string): Promise<LocationPoint | null> => {
-    if (!geocoderRef.current || !query.trim()) return null
-    return new Promise((resolve) => {
-      geocoderRef.current!.geocode({ address: query }, (results, status) => {
-        if (status !== 'OK' || !results?.[0]?.geometry?.location) {
-          resolve(null)
-          return
-        }
-        const loc = results[0].geometry.location
-        resolve({
-          display: results[0].formatted_address.split(',').slice(0, 2).join(',').trim(),
-          lat: loc.lat(),
-          lng: loc.lng(),
-        })
-      })
-    })
-  }, [])
+
 
   const neonMarkerSvg = useCallback((label: 'A' | 'B', accent: string) => {
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='42' height='54' viewBox='0 0 42 54'>
@@ -566,8 +557,8 @@ Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for thi
     return () => {
       cancelled = true
       if (clickListener) google.maps.event.removeListener(clickListener)
-      markerAAtMount?.setMap(null)
-      markerBAtMount?.setMap(null)
+      if (markerAAtMount) markerAAtMount.map = null
+      if (markerBAtMount) markerBAtMount.map = null
       mapRef.current = null
       clearAllPolys()
     }
@@ -680,7 +671,6 @@ Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for thi
   const runAnalyze = useCallback(() => {
     if (!origin || !destination) return
     setAnalyzeTriggered(true)
-    setPlannerExpanded(false)
     setActiveTab('results')
     directions.fetchRoutes()
   }, [origin, destination, directions])
@@ -713,7 +703,7 @@ Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for thi
   const showGoogle = Boolean(apiKey) && !mapError
   const tacticalAlert =
     analyzeTriggered && (directions.status === 'fallback' || directions.status === 'error')
-      ? directions.message || 'TACTICAL ALERT: No route found for this pair. Adjust A/B points and retry.'
+      ? (directions as any).message || 'TACTICAL ALERT: No route found for this pair. Adjust A/B points and retry.'
       : null
 
   const panelBg = isDark ? 'bg-black/60 text-white border-white/12' : 'bg-white/72 text-zinc-900 border-black/10'

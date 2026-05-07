@@ -11,6 +11,7 @@ export interface CopilotRouteMetrics {
   ascentM: number
   estJodSaved: number
   selectedRouteId: string
+  distanceKm: number
 }
 
 export interface CopilotContext {
@@ -29,7 +30,7 @@ export interface CopilotContext {
   }
   currentChargePercent?: number
   /** When set, chat replies use `buildHardcodedRouteChatReply` (live telemetry). */
-  copilotRouteMetrics?: CopilotRouteMetrics & { distanceKm: number }
+  copilotRouteMetrics?: CopilotRouteMetrics
 }
 
 export interface ChatMessage {
@@ -234,7 +235,7 @@ export function buildHardcodedRouteChatReply(
   return `${name}, this route balances cost and time for your ${vt} vehicle.`
 }
 
-function fallbackNoRouteReply(userText: string, ctx?: CopilotContext): string {
+export function fallbackNoRouteReply(userText: string, ctx?: CopilotContext): string {
   const siteLocale: CopilotLocale = ctx?.locale ?? 'en'
   const replyLocale = resolveReplyLocale(siteLocale, userText)
   if (replyLocale === 'ar') {
@@ -284,12 +285,11 @@ export async function sendGeminiMessage(
     ? `CRITICAL CONTEXT: This route is exceptionally short (${distText}). Before calculating vehicle emissions, you MUST proactively recommend walking, cycling, or using a micro-mobility scooter. Frame this as the ultimate zero-emission tactical choice, then optionally provide the car metrics as a fallback.`
     : ''
 
-  const precomputedJod    = ctx?.copilotRouteMetrics?.estJodSaved?.toFixed(2) ?? null
+  const rawJod            = ctx?.copilotRouteMetrics?.estJodSaved ?? 0
+  const precomputedJod    = rawJod > 0 ? rawJod.toFixed(2) : null
   const rawFuel           = ctx?.copilotRouteMetrics?.fuelSavedLiters ?? 0
-  // ✅ P2: Only inject if the value is a real non-zero number — prevents "0.00 kWh" contradiction
   const precomputedFuel   = rawFuel > 0 ? rawFuel.toFixed(2) : null
   const precomputedAscent = ctx?.copilotRouteMetrics?.ascentM ?? null
-  // Dynamic unit from vehicle type — never the literal phrase 'L or kWh'
   const fuelUnit = (ctx?.vehicleType?.toLowerCase() === 'electric') ? 'kWh' : 'L'
 
   const systemInstruction = `
@@ -297,9 +297,9 @@ You are the GreenDrive Tactical Eco-Navigator for Jordan.
 USER PROFILE: Name=${name}, Vehicle=${vt}, Current Energy/Charge=${charge}%.
 
 === ⚠️ CRITICAL DIRECTIVE — MANDATORY — DO NOT IGNORE ===
-CRITICAL DIRECTIVE: You are provided the exact fuel cost of ${precomputedJod ?? '—'} JOD.
+CRITICAL DIRECTIVE: You are provided the exact fuel cost of ${precomputedJod ?? '0.00'} JOD.
 DO NOT perform any multiplication or math yourself.
-You MUST output this exact JOD string verbatim: "${precomputedJod ?? 'N/A'} JOD"
+You MUST output this exact JOD string verbatim: "${precomputedJod ?? '0.00'} JOD"
 ${precomputedFuel ? `Exact fuel/energy consumed this trip: ${precomputedFuel} ${fuelUnit}. Use this number verbatim.` : ''}
 ${precomputedAscent ? `Exact ascent: ${precomputedAscent}m elevation gain.` : ''}
 
@@ -315,7 +315,7 @@ JORDAN OFFICIAL PRICES — May 2026 (✅ LOCKED):
 - Petrol 90: 1.000 JOD/L  | CO2: 2.31 kg/L
 - Petrol 95: 1.310 JOD/L  | CO2: 2.31 kg/L  [hybrid]
 - Diesel:    0.790 JOD/L  | CO2: 2.68 kg/L
-- EV Grid:   0.118 JOD/kWh| CO2: 0.61 kg/kWh
+- EV Grid:   0.118 JOD/kWh (partial-peak) | 0.108 off-peak | CO2: 0.61 kg/kWh
 
 ACTIVE ROUTE: ${ctx?.hasActiveRoute ? `${dest} — ${ctx.activeRouteData?.distance}, ${ctx.activeRouteData?.duration}` : 'None'}.
 ${shortTripDirective}

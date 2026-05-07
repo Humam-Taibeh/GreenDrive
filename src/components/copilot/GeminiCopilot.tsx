@@ -4,18 +4,12 @@
  */
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { LazyMotion, domMax, m, AnimatePresence } from 'framer-motion'
-import { sendGeminiMessage, type CopilotContext } from '../../services/gemini'
-import type { ChatMessage } from '../../types'
+import { sendGeminiMessage, type CopilotContext, type CopilotLocale } from '../../services/gemini'
+import type { ChatMessage, RouteOption } from '../../types'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useLocale } from '../../contexts/LocaleContext'
-import { 
-  computeTripEmissions, 
-  calculateTrafficWaste, 
-  projectYearlyImpact,
-  type VehicleType 
-} from '../../lib/vehicleProfiles'
 
 function RobotIcon({ className = '' }: { className?: string }) {
   return (
@@ -73,7 +67,7 @@ export interface GeminiCopilotProps {
 export function GeminiCopilot({ 
   isOpen: externalOpen, 
   onOpenChange, 
-  selectedRoute, 
+  selectedRoute: _selectedRoute, 
   destination,
   hasActiveRoute,
   activeRouteData,

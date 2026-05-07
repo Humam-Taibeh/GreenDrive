@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { m, useReducedMotion } from 'framer-motion'
 import { useLocale } from '../../contexts/LocaleContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { prefetchMapRoute } from '../../lib/prefetchMapRoute'
 import { scrollToSectionByHash } from '../../lib/scrollToSection'
 
@@ -13,7 +14,8 @@ const ease = [0.16, 1, 0.3, 1] as const
 export function Hero() {
   const { t } = useLocale()
   const reduce = useReducedMotion()
-  const startPath = '/auth'
+  const { user } = useAuth()
+  const startPath = user ? '/map' : '/auth'
 
   const container = useMemo(
     () => ({

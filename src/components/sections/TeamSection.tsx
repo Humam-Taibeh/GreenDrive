@@ -60,7 +60,7 @@ export function TeamSection() {
               ? 'همام طيبة'
               : m.id === 'heba'
                 ? 'هبة طيبة'
-                : 'ناتاليا الحجاوي'
+                : 'نتاليا الحجاوي'
             : t(m.id === 'humam' ? 'team.n1' : m.id === 'heba' ? 'team.n2' : 'team.n3'),
         role:
           locale === 'ar' && m.id === 'humam'
@@ -102,9 +102,8 @@ export function TeamSection() {
               <img
                 src={member.avatarUrl}
                 alt={member.name}
-                className={`h-28 w-28 rounded-2xl border border-toxic/55 object-cover object-center ring-1 ring-toxic/45 shadow-[0_0_0_1px_rgba(54,255,151,0.3),0_0_48px_-12px_rgba(54,255,151,0.46)] dark:border-toxic/65 dark:ring-toxic/55 ${
-                  member.id === 'humam' ? 'shadow-[0_0_0_1px_rgba(54,255,151,0.38),0_0_60px_-10px_rgba(54,255,151,0.66)]' : ''
-                }`}
+                className={`h-28 w-28 rounded-2xl border border-toxic/55 object-cover object-center ring-1 ring-toxic/45 shadow-[0_0_0_1px_rgba(54,255,151,0.3),0_0_48px_-12px_rgba(54,255,151,0.46)] dark:border-toxic/65 dark:ring-toxic/55 ${member.id === 'humam' ? 'shadow-[0_0_0_1px_rgba(54,255,151,0.38),0_0_60px_-10px_rgba(54,255,151,0.66)]' : ''
+                  }`}
                 style={{ imageRendering: 'auto' }}
               />
               <motion.h3
@@ -128,11 +127,10 @@ export function TeamSection() {
               </motion.p>
               {(['humam', 'heba', 'natalia'] as const).includes(member.id as 'humam' | 'heba' | 'natalia') && (
                 <span
-                  className={`mt-3 inline-flex w-fit rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition ${
-                    teamActive
+                  className={`mt-3 inline-flex w-fit rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition ${teamActive
                       ? 'border-toxic/70 text-toxic shadow-[0_0_22px_-6px_rgba(54,255,151,0.95)] [background-image:linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.04)),repeating-linear-gradient(115deg,rgba(255,255,255,0.09)_0px,rgba(255,255,255,0.09)_2px,rgba(255,255,255,0.02)_2px,rgba(255,255,255,0.02)_5px)]'
                       : 'border-white/20 text-white/70 [background-image:linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.03)),repeating-linear-gradient(115deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_2px,rgba(255,255,255,0.01)_2px,rgba(255,255,255,0.01)_5px)]'
-                  }`}
+                    }`}
                 >
                   {locale === 'ar' ? 'المؤسسون' : 'Founder'}
                 </span>

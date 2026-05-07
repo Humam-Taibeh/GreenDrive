@@ -9,24 +9,31 @@ export function useSavedLocations() {
   const [savedLocations, setSavedLocations] = useState<UserSavedLocation[]>([])
 
   useEffect(() => {
-    if (!user || !db) return
+    if (!user?.uid || !db) return
+    let cancelled = false
 
-    const q = collection(db, 'users', user.uid, 'savedLocations')
+    const q = query(
+      collection(db, 'users', user.uid, 'savedLocations'),
+      orderBy('createdAt', 'desc')
+    )
 
     const unsub = onSnapshot(q, (snap) => {
+      if (cancelled) return
       const locs = snap.docs.map(d => ({
         id: d.id,
         ...d.data()
       })) as UserSavedLocation[]
       setSavedLocations(locs)
     }, (err) => {
+      if (cancelled) return
       console.error('Firestore savedLocations error:', err)
     })
 
     return () => {
+      cancelled = true
       unsub()
     }
-  }, [user])
+  }, [user?.uid])
 
   const saveLocation = useCallback(async (loc: Omit<UserSavedLocation, 'id' | 'createdAt'>) => {
     if (!user || !db) return

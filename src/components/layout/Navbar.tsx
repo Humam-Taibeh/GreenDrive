@@ -66,7 +66,7 @@ export function Navbar() {
   const { user, signOut, profile, updateVehicleType, updateChargeLevel, updatePreferences } = useAuth()
   const reduceMotion = useReducedMotion()
   const [activeSection, setActiveSection] = useState<string>(NAV_SECTION_HASHES[0] ?? '#overview')
-  const startPath = '/auth'
+  const startPath = user ? '/map' : '/auth'
 
   // Sync vehicle type from profile if logged in
   useEffect(() => {
