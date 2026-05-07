@@ -53,12 +53,17 @@ npm install
 npm run dev
 ```
 
-### 3. "How to Judge" — Key Demo Path
-1. **The Landing**: Experience the WebGL-powered liquid background and scroll-spy navigation.
-2. **The Vault**: Sign in to see the personalized "Lead" profile and vehicle settings.
-3. **The Mission**: Go to the Map, select "Amman" to "Dead Sea" (dramatic elevation change).
-4. **The Briefing**: Select a route and click **"More details via AI"**. Watch the AI Eco-Coach provide a tactical breakdown of the terrain and fuel savings.
-5. **The Impact**: Toggle between Arabic and English to see the pixel-perfect RTL transition.
+## 🚀 Production & Deployment
+GreenDrive is engineered for scalability and professional reliability:
+- **Google Cloud Run**: Containerized deployment for serverless scalability.
+- **Cloud Build (CI/CD)**: Automated multi-stage Docker builds with secure environment injection.
+- **Nginx Optimized**: High-performance static asset serving with custom routing configurations.
+
+### 🏁 Quick Start for Judges
+1. **The Landing**: Experience the WebGL-powered liquid background.
+2. **The Vault**: Sign in to see the personalized vehicle settings.
+3. **The Mission**: Map "Amman" to "Dead Sea" (dramatic elevation change).
+4. **The Briefing**: Click **"More details via AI"** for the tactical Eco-Coach breakdown.
 
 ---
 
