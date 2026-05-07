@@ -260,7 +260,7 @@ export async function sendGeminiMessage(
   const useOpenRouter = Boolean(openRouterKey && (!geminiKey || geminiKey.includes('DUMMY') || !geminiKey.startsWith('AIza')))
   const apiKey = useOpenRouter ? openRouterKey : geminiKey
   const model = useOpenRouter 
-    ? (import.meta.env.VITE_OPENROUTER_MODEL || 'google/gemini-pro-1.5')
+    ? (import.meta.env.VITE_OPENROUTER_MODEL || 'openrouter/auto')
     : (import.meta.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash')
 
   // SECURE DIAGNOSTICS

@@ -135,7 +135,7 @@ export function LiveImpact() {
             <p className="text-label-eco text-sm">{t('imp.chartSub')}</p>
           </div>
           <div className="mt-8 h-48 w-full min-w-0 sm:h-56" style={{ minHeight: '192px' }}>
-            {mounted && (
+            {mounted ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid
@@ -176,6 +176,8 @@ export function LiveImpact() {
                   />
                 </LineChart>
               </ResponsiveContainer>
+            ) : (
+              <div className="h-full w-full bg-toxic/5 rounded-xl animate-pulse" />
             )}
           </div>
         </motion.div>
