@@ -132,8 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile])
 
   const signInWithGoogle = useCallback(async () => {
-    if (!auth) return
-    await signInWithPopup(auth, provider)
+    if (!auth) {
+      console.error('[AuthContext] Cannot sign in: Firebase is not initialized. Check your environment variables (VITE_FIREBASE_...).')
+      alert('Authentication Service is currently unavailable. Please check your internet connection or try again later.')
+      return
+    }
+    try {
+      await signInWithPopup(auth, provider)
+    } catch (err: any) {
+      console.error('[AuthContext] Google Sign-in failed:', err)
+      if (err.code === 'auth/popup-closed-by-user') return
+      alert(`Sign-in failed: ${err.message}`)
+    }
   }, [])
 
   const signUpWithEmail = useCallback(async (email: string, pass: string, firstName: string, vehicleType: string) => {
