@@ -4,7 +4,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}'
       - '--build-arg'
       - 'VITE_GEMINI_API_KEY=${_VITE_GEMINI_API_KEY}'
       - '--build-arg'
@@ -27,7 +27,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}'
 
   # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -37,7 +37,7 @@ steps:
       - 'deploy'
       - '${_SERVICE_NAME}'
       - '--image'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}'
       - '--region'
       - '${_DEPLOY_REGION}'
       - '--platform'
@@ -45,7 +45,7 @@ steps:
       - '--allow-unauthenticated'
 
 images:
-  - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+  - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}'
 
 options:
   logging: CLOUD_LOGGING
