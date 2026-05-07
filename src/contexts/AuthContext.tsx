@@ -18,8 +18,6 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  setPersistence,
-  browserSessionPersistence,
   type User,
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
@@ -39,6 +37,7 @@ interface AuthCtx {
   updateNamedLocation: (type: 'home' | 'work', loc: { lat: number; lng: number; address: string; label: string } | null) => Promise<void>
   updatePreferences: (prefs: Partial<{ theme: string; locale: string }>) => Promise<void>
   refreshProfile: () => Promise<void>
+  cloudHealthy: boolean
 }
 
 const AuthContext = createContext<AuthCtx | null>(null)

@@ -2,7 +2,6 @@
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
-import { SecurityStrip } from '../security/SecurityBadge'
 import { useLocale } from '../../contexts/LocaleContext'
 import { handleInPageNavClick } from '../../lib/scrollToSection'
 

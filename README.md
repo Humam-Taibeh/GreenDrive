@@ -10,7 +10,7 @@ In a region like Jordan, where fuel prices are high and terrain (like Amman's hi
 
 ## ✨ Key Innovation: The AI Eco-Coach
 Powered by the **Gemini 1.5 API**, GreenDrive features a dedicated "AI Eco-Coach" that acts as a tactical energy consultant.
-- **Context-Aware Briefings**: Analyzes route ascent, traffic waste, and vehicle type to provide human-readable tactical advice.
+- **Context-Aware Briefings**: Analyzes route ascent," traffic waste, and vehicle type to provide human-readable tactical advice.
 - **Dynamic Analysis**: On-demand route breakdown that explains *why* a path is eco-friendly or balanced.
 - **Impact Projections**: Converts abstract CO₂ grams into tangible metrics, like "Bio-Equivalent" mature tree absorption.
 

@@ -4,7 +4,7 @@
  */
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, setPersistence, browserSessionPersistence, type Auth } from 'firebase/auth'
-import { getFirestore, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
+import { initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
 
 const cfg = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',

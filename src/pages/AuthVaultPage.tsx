@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { BrandLogo } from '../components/brand/BrandLogo'
 import { useAuth } from '../contexts/AuthContext'
@@ -38,7 +38,6 @@ export function AuthVaultPage() {
 
   const isBusy = loading || !firebaseConfigured
   const title = isArabic ? 'الدخول إلى النظام البيئي' : 'Access the Ecosystem'
-  const subtitle = isArabic ? 'أهلاً بك مجدداً، أيها القائد.' : 'Welcome back, Lead.'
   
   // ... helper and corporateNote logic ...
 
