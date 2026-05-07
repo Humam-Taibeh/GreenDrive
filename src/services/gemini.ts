@@ -257,12 +257,20 @@ export async function sendGeminiMessage(
   const isAr = ctx?.locale === 'ar'
 
   // Prefer Direct Gemini if valid, else fallback to OpenRouter
-  // If geminiKey exists but doesn't look like AIza, we still use it if openRouterKey is missing
-  const useOpenRouter = openRouterKey && (!geminiKey || geminiKey.includes('DUMMY') || !geminiKey.startsWith('AIza'))
+  const useOpenRouter = Boolean(openRouterKey && (!geminiKey || geminiKey.includes('DUMMY') || !geminiKey.startsWith('AIza')))
   const apiKey = useOpenRouter ? openRouterKey : geminiKey
   const model = useOpenRouter 
-    ? (import.meta.env.VITE_OPENROUTER_MODEL || 'google/gemini-flash-1.5:free')
+    ? (import.meta.env.VITE_OPENROUTER_MODEL || 'google/gemini-pro-1.5')
     : (import.meta.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash')
+
+  // SECURE DIAGNOSTICS
+  console.info('[AI Core] Configuration:', {
+    provider: useOpenRouter ? 'OpenRouter' : 'Gemini',
+    model,
+    keyPrefix: apiKey ? `${apiKey.substring(0, 4)}...` : 'MISSING',
+    hasOpenRouterKey: !!openRouterKey,
+    hasGeminiKey: !!geminiKey
+  })
   
   if (!apiKey) {
     console.error('[AI Core] No valid API Key (Gemini or OpenRouter) found in .env')

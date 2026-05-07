@@ -61,6 +61,9 @@ export function LiveImpact() {
   const { resolvedTheme } = useTheme()
   const { t } = useLocale()
   const { user } = useAuth()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   const chartDark = resolvedTheme === 'dark'
   const startPath = firebaseConfigured && !user ? '/auth' : '/map'
 
@@ -132,46 +135,48 @@ export function LiveImpact() {
             <p className="text-label-eco text-sm">{t('imp.chartSub')}</p>
           </div>
           <div className="mt-8 h-48 w-full min-w-0 sm:h-56" style={{ minHeight: '192px' }}>
-            <ResponsiveContainer key="impact-chart" width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid
-                  stroke={chartDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'}
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="t"
-                  stroke={chartDark ? '#ffffff33' : '#00000033'}
-                  tick={{ fill: chartDark ? '#ffffff88' : '#52525b', fontSize: 11 }}
-                />
-                <YAxis
-                  stroke={chartDark ? '#ffffff33' : '#00000033'}
-                  tick={{ fill: chartDark ? '#ffffff88' : '#52525b', fontSize: 11 }}
-                  width={32}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: chartDark ? '#0a0a0a' : '#fafafa',
-                    border: chartDark
-                      ? '1px solid rgba(255,255,255,0.1)'
-                      : '1px solid rgba(0,0,0,0.08)',
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: chartDark ? '#fff' : '#18181b' }}
-                  formatter={(v) => (v != null ? [`${v} kg`, t('imp.co2Saved')] : ['', ''])}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="kg"
-                  stroke="#36ff97"
-                  strokeWidth={3}
-                  dot={{ fill: '#36ff97', strokeWidth: 0, r: 4 }}
-                  activeDot={{ r: 6, fill: '#b8ffe0' }}
-                  isAnimationActive
-                  animationDuration={1400}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {mounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid
+                    stroke={chartDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'}
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="t"
+                    stroke={chartDark ? '#ffffff33' : '#00000033'}
+                    tick={{ fill: chartDark ? '#ffffff88' : '#52525b', fontSize: 11 }}
+                  />
+                  <YAxis
+                    stroke={chartDark ? '#ffffff33' : '#00000033'}
+                    tick={{ fill: chartDark ? '#ffffff88' : '#52525b', fontSize: 11 }}
+                    width={32}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: chartDark ? '#0a0a0a' : '#fafafa',
+                      border: chartDark
+                        ? '1px solid rgba(255,255,255,0.1)'
+                        : '1px solid rgba(0,0,0,0.08)',
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: chartDark ? '#fff' : '#18181b' }}
+                    formatter={(v) => (v != null ? [`${v} kg`, t('imp.co2Saved')] : ['', ''])}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="kg"
+                    stroke="#36ff97"
+                    strokeWidth={3}
+                    dot={{ fill: '#36ff97', strokeWidth: 0, r: 4 }}
+                    activeDot={{ r: 6, fill: '#b8ffe0' }}
+                    isAnimationActive
+                    animationDuration={1400}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </motion.div>
 
