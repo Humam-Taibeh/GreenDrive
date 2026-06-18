@@ -9,7 +9,7 @@ GreenDrive is a production-grade, AI-driven route optimization platform built fo
 ---
 
 ## 📸 App Preview & Interface
-*(Optional: Insert your project screenshot here by uploading an image to this repo and linking it like: `<img src="https://github.com/user-attachments/assets/5ea033eb-25d6-4ce2-a3b1-58e1f1f53e1f" width="100%" alt="GreenDrive Interface" />)*
+`<img src="https://github.com/user-attachments/assets/5ea033eb-25d6-4ce2-a3b1-58e1f1f53e1f" width="100%" alt="GreenDrive Interface" />
 
 ---
 
