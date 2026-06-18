@@ -1,63 +1,53 @@
 # 🌿 GreenDrive AI
+
+### 🔗 [Live Deployment Demo](https://greendrive-1082596306226.europe-west1.run.app/) | 🚀 Powered by Gemini 1.5 & Google Cloud
+
 > **Tactical Energy Intelligence for the Modern Driver.**
 
-GreenDrive is a production-grade, AI-driven route optimization platform built for the **Amman-Jordan** ecosystem. It goes beyond simple navigation by integrating real-world terrain physics and live vehicle telemetry to calculate the true cost of every trip—both in JOD and CO₂.
+GreenDrive is a production-grade, AI-driven route optimization platform built for the **Amman-Jordan** ecosystem. It integrates real-world terrain physics and live vehicle telemetry to calculate the true cost of every trip—both in JOD and CO₂.
+
+---
+
+## 📸 App Preview & Interface
+*(Optional: Insert your project screenshot here by uploading an image to this repo and linking it like: `![GreenDrive Interface](your-image-url.png)`)*
 
 ---
 
 ## 📽️ The Vision
-In a region like Jordan, where fuel prices are high and terrain (like Amman's hills) significantly impacts efficiency, standard navigation falls short. GreenDrive fills this gap with a **Physics-First** approach, turning every drive into a tactical sustainability mission.
+In a region like Jordan, where fuel prices are high and terrain (like Amman's hills) significantly impacts efficiency, standard navigation falls short. GreenDrive fills this gap with a **Physics-First** approach to optimize route energy consumption.
 
 ## ✨ Key Innovation: The AI Eco-Coach
-Powered by the **Gemini 1.5 API**, GreenDrive features a dedicated "AI Eco-Coach" that acts as a tactical energy consultant.
-- **Context-Aware Briefings**: Analyzes route ascent," traffic waste, and vehicle type to provide human-readable tactical advice.
-- **Dynamic Analysis**: On-demand route breakdown that explains *why* a path is eco-friendly or balanced.
-- **Impact Projections**: Converts abstract CO₂ grams into tangible metrics, like "Bio-Equivalent" mature tree absorption.
+Powered by the **Gemini 1.5 API**, GreenDrive features a dedicated "AI Eco-Coach" that acts as an energy consultant.
+* **Context-Aware Briefings**: Analyzes route ascent, traffic conditions, and vehicle type to provide human-readable advice.
+* **Dynamic Analysis**: On-demand route breakdown that explains why a path is eco-friendly or balanced.
+* **Impact Projections**: Converts abstract CO₂ grams into tangible metrics, like "Bio-Equivalent" mature tree absorption.
 
 ---
 
 ## 🛠️ The Technical Powerhouse
 Built with a focus on high-fidelity performance and zero-regression architecture:
 
-### ⚛️ Frontend Excellence
-- **React 19 & Vite**: Utilizing the latest React features for ultra-fast performance.
-- **Framer Motion**: Premium glassmorphic UI with smooth micro-animations and layout transitions.
-- **Three.js / WebGL**: Ambient liquid mesh backgrounds and topographic grid overlays for a "Command Center" feel.
-- **RTL-First**: Deeply integrated Arabic/English support using Tailwind logical properties and a custom i18n engine.
+### ⚛️ Frontend Architecture
+* **React 19 & Vite**: Utilizing the latest React features for fast performance.
+* **Framer Motion**: Premium glassmorphic UI with smooth micro-animations and layout transitions.
+* **Three.js / WebGL**: Ambient liquid mesh backgrounds and topographic grid overlays.
+* **RTL-First**: Deeply integrated Arabic/English support using Tailwind logical properties and a custom i18n engine.
 
 ### 🧮 Physics & Mapping
-- **Elevation-Aware Routing**: Real-time integration with **Google Maps SDK** and **Elevation API** to calculate `mgh` work penalty.
-- **Vehicle-Specific Modeling**: Custom efficiency curves for **Petrol, Diesel, Hybrid, and Electric (EV)** vehicles.
-- **Jordan-Specific Calibration**: Hardcoded with local Ministry of Energy fuel pricing (May 2026) and NEPCO grid carbon intensity.
+* **Elevation-Aware Routing**: Real-time integration with **Google Maps SDK** and **Elevation API** to calculate terrain impact.
+* **Vehicle-Specific Modeling**: Custom efficiency curves for **Petrol, Diesel, Hybrid, and Electric (EV)** vehicles.
+* **Jordan-Specific Calibration**: Hardcoded with local Ministry of Energy fuel pricing and NEPCO grid carbon intensity.
 
-### 🛡️ Secure Infrastructure
-- **Firebase Core**: Secure Auth, Firestore real-time sync, and lightning-fast Hosting.
-- **Auth Vault**: A military-grade interface for managing user profiles and sustainability history.
+### 🛡️ Infrastructure
+* **Firebase Core**: Secure Auth, Firestore real-time sync, and Hosting.
+* **Auth Vault**: A secure interface for managing user profiles and sustainability history.
 
 ---
 
-## 🚀 Getting Started for Judges
-
-### 1. Requirements
-Ensure you have the following environment variables set in your `.env.local`:
-```env
-VITE_GOOGLE_MAPS_API_KEY=your_key
-VITE_GEMINI_API_KEY=your_key
-VITE_FIREBASE_API_KEY=your_key
-# ... and other Firebase config variables
-```
-
-### 2. Launch
-```bash
-npm install
-npm run dev
-```
-
 ## 🚀 Production & Deployment
-GreenDrive is engineered for scalability and professional reliability:
-- **Google Cloud Run**: Containerized deployment for serverless scalability.
-- **Cloud Build (CI/CD)**: Automated multi-stage Docker builds with secure environment injection.
-- **Nginx Optimized**: High-performance static asset serving with custom routing configurations.
+* **Google Cloud Run**: Containerized deployment for serverless scalability.
+* **Cloud Build (CI/CD)**: Automated multi-stage Docker builds with secure environment injection.
+* **Nginx Optimized**: High-performance static asset serving with custom routing configurations.
 
 ### 🏁 Quick Start for Judges
 1. **The Landing**: Experience the WebGL-powered liquid background.
@@ -68,10 +58,6 @@ GreenDrive is engineered for scalability and professional reliability:
 ---
 
 ## 👥 The Team
-- **Humam Taibeh**: Lead Architect & Systems Engineer
-- **Heba Taibeh**: Product Strategy & Experience Design
-- **Natalia Al-Hajawi**: Security & QA Lead
-
----
-
-*Engineered with precision for a greener tomorrow.*
+* **Humam Taibeh**: AI-Assisted Systems Engineer
+* **Heba Taibeh**: Product Strategy & UX Design
+* **Natalia Al-Hajawi**: Security & QA Lead
