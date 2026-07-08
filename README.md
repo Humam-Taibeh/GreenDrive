@@ -1,11 +1,13 @@
+[🏛️ Back to Main Profile](https://github.com/Humam-Taibeh)
+
 # 🌿 GreenDrive AI
 
-### 🔗 [Live Deployment Demo](https://greendrive-1082596306226.europe-west1.run.app/) | 🚀 Powered by Gemini 1.5 & Google Cloud Ecosystem
+### 🔗 [Live Deployment Demo](https://greendrive-1082596306226.europe-west1.run.app/) | 🚀 Powered by Gemini 1.5 & Google Cloud
 
 > **Tactical Energy Intelligence for the Modern Driver.**
 > Developed for the Google Hackathon under the **AI for Intelligent Transportation** track.
 
-GreenDrive is a production-grade, AI-driven route optimization platform custom-engineered for the **Amman-Jordan** ecosystem. It goes beyond standard navigation by integrating real-world terrain physics and live vehicle telemetry to calculate the true financial and environmental cost of every trip—both in JOD and CO₂.
+GreenDrive is a production-grade, AI-driven route optimization platform engineered for the **Amman, Jordan** ecosystem. Its core is a physics-first routing architecture: gravitational work penalties (`mgh`) computed from live elevation data, cross-referenced against a localized Jordanian energy-tariff matrix (petrol, diesel, hybrid, EV) and per-vehicle consumption curves, to surface the true financial and environmental cost of every trip — in JOD and CO₂.
 
 ---
 
@@ -20,53 +22,64 @@ GreenDrive is a production-grade, AI-driven route optimization platform custom-e
 ---
 
 ## 📽️ The Vision & Regional Impact
-In a mountainous region like Jordan—specifically Amman's steep hills and predictable traffic bottlenecks—standard, distance-based navigation falls short. Elevation changes dramatically increase fuel consumption. 
 
-GreenDrive solves this by introducing a **Physics-First Approach** that analyzes 3 distinct route choices for the user:
+In a mountainous region like Jordan — specifically Amman's steep hills and predictable traffic bottlenecks — standard, distance-based navigation falls short. Elevation changes dramatically increase fuel consumption.
+
+GreenDrive solves this with a **physics-first approach** that surfaces 3 distinct route choices:
+
 1. **The Fastest Route:** Standard mapping optimization (similar to Google Maps).
-2. **The Eco-Route (AI Optimized):** Heavily calculates traffic delays, traffic lights, and elevation penalties to find the path that minimizes fuel waste, even if the distance is slightly longer.
+2. **The Eco-Route (AI Optimized):** Weighs traffic delays, signal density, and elevation penalties to find the path that minimizes fuel waste, even if the distance is slightly longer.
 3. **The Balanced Route:** A hybrid optimization between speed and energy conservation.
 
 ---
 
 ## ✨ Key Innovation: The AI Eco-Coach
-Powered by the **Gemini 1.5 API**, GreenDrive features an on-demand "AI Eco-Coach" calibrated with current local Jordanian energy and fuel pricing (Petrol, Hybrid, Diesel, and EV electricity tariffs).
-* **Financial Comparisons:** Calculates the real-time money saved (in JOD) based on your specific vehicle type curve.
-* **Context-Aware Briefings:** Explains the exact rationale behind a route's efficiency relative to Amman's topography.
-* **Impact Projections:** Converts abstract CO₂ grams into tangible metrics, like "Bio-Equivalent" mature tree absorption.
+
+Powered by the **Gemini 1.5 API**, GreenDrive features an on-demand "AI Eco-Coach" calibrated with local Jordanian energy and fuel pricing (petrol, hybrid, diesel, and EV electricity tariffs).
+
+* **Financial Comparisons:** Calculates estimated money saved (in JOD) based on your specific vehicle's consumption curve.
+* **Context-Aware Briefings:** Explains the rationale behind a route's efficiency relative to Amman's topography.
+* **Impact Projections:** Converts abstract CO₂ grams into tangible, relatable metrics.
 
 ---
 
 ## 🛠️ The Technical Powerhouse
-Built with a focus on high-fidelity performance and secure cloud scaling within the **Google Ecosystem**:
+
+Built with a focus on high-fidelity performance and secure cloud scaling within the **Google Cloud ecosystem**:
 
 ### ⚛️ Frontend Architecture
-* **React 19 & Vite:** Utilizing the latest React streaming features for rapid client-side performance.
-* **Framer Motion:** Premium glassmorphic UI with smooth interactive micro-animations.
-* **Three.js / WebGL:** Ambient dynamic liquid mesh backgrounds for an immersive "Command Center" aesthetic.
-* **RTL-First:** Full English and Arabic UI integration using Tailwind logical properties.
+* **React 19 & Vite:** Latest React streaming features for rapid client-side performance.
+* **Framer Motion:** Glassmorphic UI with smooth, interactive micro-animations.
+* **Three.js / WebGL:** Ambient dynamic liquid-mesh backgrounds for an immersive "command center" aesthetic.
+* **RTL-First:** Full English and Arabic UI support using Tailwind logical properties.
 
 ### 🧮 Physics, Mapping & Backend
-* **Elevation-Aware Routing:** Real-time integration with **Google Maps SDK** and **Elevation API** to compute gravitational work penalties (`mgh`).
-* **Vehicle-Specific Calibration:** Dynamic consumption matrices tailored for Petrol, Diesel, Hybrid, and Electric (EV) drivetrains.
-* **Firebase Suite:** Secure Firebase Authentication and Firestore real-time synchronization.
+* **Elevation-Aware Routing:** Real-time integration with the **Google Maps SDK** and **Elevation API** to compute gravitational work penalties (`mgh`).
+* **Vehicle-Specific Calibration:** Dynamic consumption matrices tailored for petrol, diesel, hybrid, and electric (EV) drivetrains.
+* **Firebase Suite:** Firebase Authentication and Firestore real-time synchronization.
 
 ### 🛡️ Production & Cloud Deployment (Google Cloud Native)
 * **Google Cloud Run:** Serverless containerized hosting for dynamic horizontal scalability.
-* **Cloud Build (CI/CD):** Multi-stage automated Docker builds with highly secure environment variable injections.
-* **Nginx Optimized:** High-performance static routing layer serving static client assets.
+* **Cloud Build (CI/CD):** Multi-stage automated Docker builds with secure environment-variable injection.
+* **Nginx Optimized:** High-performance static routing layer serving client assets.
 
 ---
 
 ## 🏁 Quick Start for Judges
-1. **The Landing:** View the WebGL-powered enterprise dashboard.
-2. **The Vault:** Sign in and calibrate your specific vehicle type (EV, Petrol, Hybrid, or Diesel).
+
+1. **The Landing:** View the WebGL-powered dashboard.
+2. **The Vault:** Sign in and calibrate your vehicle type (EV, petrol, hybrid, or diesel).
 3. **The Mission:** Input a route with drastic elevation change (e.g., *Amman* to *Dead Sea*).
 4. **The Briefing:** Click **"More details via AI"** to generate the localized Gemini pricing and savings breakdown.
 
 ---
 
 ## 👥 The Team
-* **[Humam Taibeh](https://github.com/Humam-Taibeh)**: AI-Assisted Systems Engineer
-* **[Heba Taibeh](https://github.com/HebaZakwan)**: Product Strategy & UX Design
-* **[Natalia Al-Hajawi](https://github.com/silvercreeks14)**: Security & QA Lead
+
+* **[Humam Taibeh](https://github.com/Humam-Taibeh)** — AI-Assisted Systems Engineer
+* **[Heba Taibeh](https://github.com/HebaZakwan)** — Product Strategy & UX Design
+* **[Natalia Al-Hajawi](https://github.com/silvercreeks14)** — Security & QA Lead
+
+---
+
+[🏛️ Back to Main Profile](https://github.com/Humam-Taibeh)
