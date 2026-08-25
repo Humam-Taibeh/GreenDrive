@@ -2,12 +2,12 @@
 
 # 🌿 GreenDrive AI
 
-### 🔗 [Live Deployment Demo](https://greendrive-1082596306226.europe-west1.run.app/) | 🚀 Powered by Gemini 1.5 & Google Cloud
+### 🔗 [Live Demo](https://greendrive-1082596306226.europe-west1.run.app/) | Built with Gemini 1.5 & Google Cloud
 
-> **Tactical Energy Intelligence for the Modern Driver.**
-> Developed for the Google Hackathon under the **AI for Intelligent Transportation** track.
+> A route-optimization prototype that factors in Amman's hills — not just distance.
+> Built for the Google Antigravity Hackathon, AI for Intelligent Transportation track.
 
-GreenDrive is a production-grade, AI-driven route optimization platform engineered for the **Amman, Jordan** ecosystem. Its core is a physics-first routing architecture: gravitational work penalties (`mgh`) computed from live elevation data, cross-referenced against a localized Jordanian energy-tariff matrix (petrol, diesel, hybrid, EV) and per-vehicle consumption curves, to surface the true financial and environmental cost of every trip — in JOD and CO₂.
+GreenDrive is a route-optimization tool built for Amman, Jordan's hilly terrain. The core idea: instead of ranking routes by distance alone, it computes the actual gravitational work (`mgh`) a route demands using live elevation data, and weighs that against a Jordanian fuel/EV tariff matrix — to show the real financial and environmental cost of a trip, in JOD and CO₂.
 
 ---
 
@@ -21,64 +21,68 @@ GreenDrive is a production-grade, AI-driven route optimization platform engineer
 
 ---
 
-## 📽️ The Vision & Regional Impact
+## 📽️ The Problem We Targeted
 
-In a mountainous region like Jordan — specifically Amman's steep hills and predictable traffic bottlenecks — standard, distance-based navigation falls short. Elevation changes dramatically increase fuel consumption.
+Amman's steep hills and traffic bottlenecks mean standard, distance-based navigation often misses the real cost of a trip — elevation change can increase fuel consumption a lot more than a few extra kilometers would.
 
-GreenDrive solves this with a **physics-first approach** that surfaces 3 distinct route choices:
+GreenDrive addresses this with three route options:
 
-1. **The Fastest Route:** Standard mapping optimization (similar to Google Maps).
-2. **The Eco-Route (AI Optimized):** Weighs traffic delays, signal density, and elevation penalties to find the path that minimizes fuel waste, even if the distance is slightly longer.
-3. **The Balanced Route:** A hybrid optimization between speed and energy conservation.
-
----
-
-## ✨ Key Innovation: The AI Eco-Coach
-
-Powered by the **Gemini 1.5 API**, GreenDrive features an on-demand "AI Eco-Coach" calibrated with local Jordanian energy and fuel pricing (petrol, hybrid, diesel, and EV electricity tariffs).
-
-* **Financial Comparisons:** Calculates estimated money saved (in JOD) based on your specific vehicle's consumption curve.
-* **Context-Aware Briefings:** Explains the rationale behind a route's efficiency relative to Amman's topography.
-* **Impact Projections:** Converts abstract CO₂ grams into tangible, relatable metrics.
+1. **Fastest Route** — standard time-optimized routing.
+2. **Eco-Route (AI-Optimized)** — weighs traffic, signal density, and elevation penalties to minimize fuel waste, even at a slightly longer distance.
+3. **Balanced Route** — a middle ground between speed and energy conservation.
 
 ---
 
-## 🛠️ The Technical Powerhouse
+## ✨ AI Eco-Coach
 
-Built with a focus on high-fidelity performance and secure cloud scaling within the **Google Cloud ecosystem**:
+Using the **Gemini 1.5 API**, GreenDrive includes an on-demand "AI Eco-Coach" calibrated with Jordanian fuel and EV tariffs. It:
 
-### ⚛️ Frontend Architecture
-* **React 19 & Vite:** Latest React streaming features for rapid client-side performance.
-* **Framer Motion:** Glassmorphic UI with smooth, interactive micro-animations.
-* **Three.js / WebGL:** Ambient dynamic liquid-mesh backgrounds for an immersive "command center" aesthetic.
-* **RTL-First:** Full English and Arabic UI support using Tailwind logical properties.
-
-### 🧮 Physics, Mapping & Backend
-* **Elevation-Aware Routing:** Real-time integration with the **Google Maps SDK** and **Elevation API** to compute gravitational work penalties (`mgh`).
-* **Vehicle-Specific Calibration:** Dynamic consumption matrices tailored for petrol, diesel, hybrid, and electric (EV) drivetrains.
-* **Firebase Suite:** Firebase Authentication and Firestore real-time synchronization.
-
-### 🛡️ Production & Cloud Deployment (Google Cloud Native)
-* **Google Cloud Run:** Serverless containerized hosting for dynamic horizontal scalability.
-* **Cloud Build (CI/CD):** Multi-stage automated Docker builds with secure environment-variable injection.
-* **Nginx Optimized:** High-performance static routing layer serving client assets.
+* Estimates money saved (in JOD) based on your vehicle's consumption
+* Explains why a route is more efficient given Amman's terrain
+* Converts CO₂ savings into easier-to-picture terms
 
 ---
 
-## 🏁 Quick Start for Judges
+## 🛠️ How It's Built
 
-1. **The Landing:** View the WebGL-powered dashboard.
-2. **The Vault:** Sign in and calibrate your vehicle type (EV, petrol, hybrid, or diesel).
-3. **The Mission:** Input a route with drastic elevation change (e.g., *Amman* to *Dead Sea*).
-4. **The Briefing:** Click **"More details via AI"** to generate the localized Gemini pricing and savings breakdown.
+### Frontend
+* **React 19 & Vite**
+* **Framer Motion** for UI animation
+* **Three.js / WebGL** for the animated background visuals
+* **RTL-first**: English and Arabic UI support via Tailwind logical properties
+
+### Mapping & Backend
+* **Google Maps SDK & Elevation API** for live elevation data and the `mgh` calculation
+* Per-vehicle consumption matrices for petrol, diesel, hybrid, and EV
+* **Firebase** for authentication and real-time data sync
+
+### Deployment
+* **Google Cloud Run** for hosting
+* **Cloud Build** for automated CI/CD
+* **Nginx** serving static assets
+
+---
+
+## 🤖 How We Actually Built This
+
+Full transparency on process: this was built by directing AI coding tools — **Claude, Gemini, and Google's Antigravity** — to architect and implement the project within the hackathon timeframe, rather than writing every line manually. That's genuinely how I build: I focus on the idea, the architecture, and the product decisions, and use AI tools (with a lot of prompt iteration) to turn that into working, deployed software. I'm a 3rd-year AI student still building up my core programming fundamentals alongside this — GreenDrive was as much practice in system design and prompt engineering as it was a hackathon submission.
+
+---
+
+## 🏁 For Judges / Reviewers
+
+1. View the landing page.
+2. Sign in and pick a vehicle type (EV, petrol, hybrid, or diesel).
+3. Enter a route with a big elevation change (e.g., Amman → Dead Sea).
+4. Click "More details via AI" for the Gemini-generated cost/savings breakdown.
 
 ---
 
 ## 👥 The Team
 
-* **[Humam Taibeh](https://github.com/Humam-Taibeh)** — AI-Assisted Systems Engineer
+* **[Humam Taibeh](https://github.com/Humam-Taibeh)** — AI-directed development & architecture
 * **[Heba Taibeh](https://github.com/HebaZakwan)** — Product Strategy & UX Design
-* **[Natalia Al-Hajawi](https://github.com/silvercreeks14)** — Security & QA Lead
+* **[Natalia Al-Hajawi](https://github.com/silvercreeks14)** — Security & QA
 
 ---
 
