@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
 import { handleInPageNavClick } from '../../lib/scrollToSection'
-import { DEMO_SHOWCASE, SHOWCASE_COPY } from '../../config/showcase'
+import { DEMO_SHOWCASE, SHOWCASE_REPO_URL } from '../../config/showcase'
 
 export interface FxControlProps {
   disabled: boolean
@@ -14,26 +14,38 @@ export interface FxControlProps {
 
 export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
   const m = useScrollMotionProps()
-  const { t, locale } = useLocale()
+  const { t } = useLocale()
 
   const cols = useMemo(
-    () => [
-      [
-        { label: t('foot.about'), href: '#overview' },
-        { label: t('foot.features'), href: '#features' },
-        { label: t('foot.impact'), href: '#impact' },
-      ],
-      [
-        { label: t('foot.contact'), href: '#contact' },
-        { label: t('foot.cases'), href: '#process' },
-        { label: t('foot.terms'), href: '#intelligence' },
-      ],
-      [
-        { label: t('foot.github'), href: 'https://github.com/' },
-        { label: t('foot.insta'), href: 'https://instagram.com/' },
-        { label: t('foot.linkedin'), href: 'https://linkedin.com/' },
-      ],
-    ],
+    () =>
+      DEMO_SHOWCASE
+        ? // Showcase: only links that lead somewhere real (no placeholder Terms / Case studies / generic social links).
+          [
+            [
+              { label: t('foot.about'), href: '#overview' },
+              { label: t('foot.features'), href: '#features' },
+              { label: t('foot.impact'), href: '#impact' },
+            ],
+            [{ label: t('foot.contact'), href: '#contact' }],
+            [{ label: t('foot.github'), href: SHOWCASE_REPO_URL }],
+          ]
+        : [
+            [
+              { label: t('foot.about'), href: '#overview' },
+              { label: t('foot.features'), href: '#features' },
+              { label: t('foot.impact'), href: '#impact' },
+            ],
+            [
+              { label: t('foot.contact'), href: '#contact' },
+              { label: t('foot.cases'), href: '#process' },
+              { label: t('foot.terms'), href: '#intelligence' },
+            ],
+            [
+              { label: t('foot.github'), href: 'https://github.com/' },
+              { label: t('foot.insta'), href: 'https://instagram.com/' },
+              { label: t('foot.linkedin'), href: 'https://linkedin.com/' },
+            ],
+          ],
     [t]
   )
 
@@ -81,7 +93,7 @@ export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
 
         <div className="flex flex-col items-center justify-between gap-2 px-1 pt-3 sm:flex-row">
           <p className="text-label-eco text-center text-[10px] leading-relaxed sm:text-start sm:text-[11px]">
-            {DEMO_SHOWCASE ? SHOWCASE_COPY[locale].footLegal : t('foot.legal')}
+            {t('foot.legal')}
           </p>
           {fxControl && (
             <button
