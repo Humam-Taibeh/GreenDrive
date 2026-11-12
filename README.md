@@ -2,7 +2,9 @@
 
 # 🌿 GreenDrive AI
 
-### 🔗 [Live Demo](https://greendrive-1082596306226.europe-west1.run.app/) | Built with Gemini 1.5 & Google Cloud
+### 🔗 [Live Preview (design showcase)](https://greendrive-5574e.web.app)
+
+> **Status: prototype.** Interactive route analysis (map, elevation and the AI Eco-Coach) is under development. The public page is a design showcase: it contains no live map, no AI calls and no route, ascent, fuel or CO₂ results.
 
 > A route-optimization prototype that factors in Amman's hills — not just distance.
 > Built for the Google Antigravity Hackathon, AI for Intelligent Transportation track.
@@ -57,9 +59,8 @@ Using the **Gemini 1.5 API**, GreenDrive includes an on-demand "AI Eco-Coach" ca
 * **Firebase** for authentication and real-time data sync
 
 ### Deployment
-* **Google Cloud Run** for hosting
-* **Cloud Build** for automated CI/CD
-* **Nginx** serving static assets
+* **Public design showcase:** static build on **Firebase Hosting** (`npm run build:showcase`, no API keys in the bundle).
+* The original Cloud Run setup (`Dockerfile`, `nginx.conf`, `cloudbuild.yaml`) is still in the repo, but that deployment is no longer live.
 
 ---
 
@@ -70,6 +71,8 @@ Full transparency on process: this was built by directing AI coding tools — **
 ---
 
 ## 🏁 For Judges / Reviewers
+
+> The public showcase covers step 1 only. Steps 2–4 need the full app running locally with your own Google Maps and AI keys (see `.env.example`).
 
 1. View the landing page.
 2. Sign in and pick a vehicle type (EV, petrol, hybrid, or diesel).

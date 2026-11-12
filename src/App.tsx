@@ -12,16 +12,22 @@ import { InitialLoader } from './components/layout/InitialLoader'
 import { Navbar } from './components/layout/Navbar'
 import { LandingRouteSkeleton, MapRouteSkeleton } from './components/layout/RouteSkeletons'
 import { ErrorBoundary } from './components/error/ErrorBoundary'
+import { ShowcaseNoticePage } from './components/showcase/ShowcaseBlocks'
+import { DEMO_SHOWCASE } from './config/showcase'
 
 const LandingPage = lazy(async () => {
   const mod = await import('./pages/LandingPage')
   return { default: mod.LandingPage }
 })
 
-const MapViewPage = lazy(async () => {
-  const mod = await import('./pages/MapViewPage')
-  return { default: mod.MapViewPage }
-})
+// Showcase mode: the map page (Google Maps + AI) is never imported, so it is left out of the bundle.
+// The condition must stay a literal `import.meta.env` comparison so the bundler can drop the branch.
+const MapViewPage = import.meta.env.VITE_DEMO_MODE === 'showcase'
+  ? null
+  : lazy(async () => {
+      const mod = await import('./pages/MapViewPage')
+      return { default: mod.MapViewPage }
+    })
 
 const AuthVaultPage = lazy(async () => {
   const mod = await import('./pages/AuthVaultPage')
@@ -186,11 +192,12 @@ function ThemedShell() {
               {...mapOpacityOnlyMotion(reduceMotion)}
             >
               <Suspense fallback={<MapRouteSkeleton />}>
-                <MapViewPage />
+                {MapViewPage ? <MapViewPage /> : <ShowcaseNoticePage />}
               </Suspense>
             </m.div>
           )}
-          {pathname === '/auth' && (
+          {pathname === '/auth' && DEMO_SHOWCASE && <Navigate to="/map" replace />}
+          {pathname === '/auth' && !DEMO_SHOWCASE && (
             <m.div
               key="page-auth"
               className="w-full"

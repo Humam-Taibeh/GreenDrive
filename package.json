@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "dev:showcase": "vite --mode showcase",
+    "build:showcase": "vite build --mode showcase && node scripts/verify-showcase-dist.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

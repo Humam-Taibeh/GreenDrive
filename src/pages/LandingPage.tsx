@@ -9,11 +9,16 @@ import { Footer } from '../components/layout/Footer'
 import type { FxControlProps } from '../components/layout/Footer'
 import { scrollToSectionByHash } from '../lib/scrollToSection'
 import { prefetchMapRoute } from '../lib/prefetchMapRoute'
+import { ImpactShowcase } from '../components/showcase/ShowcaseBlocks'
 
-const LiveImpact = lazy(async () => {
-  const m = await import('../components/sections/LiveImpact')
-  return { default: m.LiveImpact }
-})
+// Showcase mode: the "Live impact" chart/trips are sample data, so that section is replaced and never loaded.
+// Literal `import.meta.env` comparison on purpose: it lets the bundler drop the chunk.
+const LiveImpact = import.meta.env.VITE_DEMO_MODE === 'showcase'
+  ? null
+  : lazy(async () => {
+      const m = await import('../components/sections/LiveImpact')
+      return { default: m.LiveImpact }
+    })
 
 const TeamSection = lazy(async () => {
   const m = await import('../components/sections/TeamSection')
@@ -52,9 +57,13 @@ export function LandingPage({ fxControl }: { fxControl: FxControlProps }) {
       <Hero />
       <FeatureMatrix />
       <HowItWorks />
-      <Suspense fallback={null}>
-        <LiveImpact />
-      </Suspense>
+      {LiveImpact ? (
+        <Suspense fallback={null}>
+          <LiveImpact />
+        </Suspense>
+      ) : (
+        <ImpactShowcase />
+      )}
       <IntelligenceSection />
       <Suspense fallback={null}>
         <TeamSection />

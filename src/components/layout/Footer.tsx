@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
 import { handleInPageNavClick } from '../../lib/scrollToSection'
+import { DEMO_SHOWCASE, SHOWCASE_COPY } from '../../config/showcase'
 
 export interface FxControlProps {
   disabled: boolean
@@ -13,7 +14,7 @@ export interface FxControlProps {
 
 export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
   const m = useScrollMotionProps()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
 
   const cols = useMemo(
     () => [
@@ -80,7 +81,7 @@ export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
 
         <div className="flex flex-col items-center justify-between gap-2 px-1 pt-3 sm:flex-row">
           <p className="text-label-eco text-center text-[10px] leading-relaxed sm:text-start sm:text-[11px]">
-            {t('foot.legal')}
+            {DEMO_SHOWCASE ? SHOWCASE_COPY[locale].footLegal : t('foot.legal')}
           </p>
           {fxControl && (
             <button
