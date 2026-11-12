@@ -8,14 +8,16 @@ import { useLocale } from '../../contexts/LocaleContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { prefetchMapRoute } from '../../lib/prefetchMapRoute'
 import { scrollToSectionByHash } from '../../lib/scrollToSection'
+import { DEMO_SHOWCASE, SHOWCASE_COPY } from '../../config/showcase'
+import { ShowcasePill } from '../showcase/ShowcaseBlocks'
 
 const ease = [0.16, 1, 0.3, 1] as const
 
 export function Hero() {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const reduce = useReducedMotion()
   const { user } = useAuth()
-  const startPath = user ? '/map' : '/auth'
+  const startPath = DEMO_SHOWCASE || user ? '/map' : '/auth'
 
   const container = useMemo(
     () => ({
@@ -83,7 +85,7 @@ export function Hero() {
             style={layerStyle}
             className="mt-10 max-w-2xl text-lg leading-relaxed text-zinc-800 sm:text-xl lg:mt-12 lg:text-2xl lg:leading-relaxed dark:text-white/72"
           >
-            {t('hero.sub')}
+            {DEMO_SHOWCASE ? SHOWCASE_COPY[locale].heroSub : t('hero.sub')}
           </m.p>
           <m.div
             variants={item}
@@ -109,6 +111,11 @@ export function Hero() {
               {t('hero.ctaStack')}
             </button>
           </m.div>
+          {DEMO_SHOWCASE && (
+            <m.div variants={item} style={layerStyle}>
+              <ShowcasePill />
+            </m.div>
+          )}
         </m.div>
       </div>
     </section>

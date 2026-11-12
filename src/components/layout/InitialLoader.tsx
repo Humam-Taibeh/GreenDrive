@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { prefetchMapRoute } from '../../lib/prefetchMapRoute'
+import { DEMO_SHOWCASE } from '../../config/showcase'
 
 const MIN_MS = 520
 const FADE_MS = 380
@@ -78,7 +79,10 @@ export function InitialLoader() {
         if (cancelled) return
 
         const path = window.location.pathname
-        if (path === '/map') {
+        if (DEMO_SHOWCASE && path !== '/') {
+          // Showcase: /map and /auth show a static notice — nothing to preload.
+        } else if (path === '/map' && import.meta.env.VITE_DEMO_MODE !== 'showcase') {
+          // (literal `import.meta.env` comparison so the bundler can drop this import in showcase builds)
           await import('../../pages/MapViewPage').catch(() => undefined)
         } else {
           await import('../../pages/LandingPage').catch(() => undefined)

@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { firebaseConfigured } from '../../firebase/config'
 import { handleInPageNavClick } from '../../lib/scrollToSection'
 import { prefetchMapRoute } from '../../lib/prefetchMapRoute'
+import { DEMO_SHOWCASE } from '../../config/showcase'
 import { Settings } from 'lucide-react'
 
 /** Minimal nav labels mapped to sections */
@@ -66,7 +67,7 @@ export function Navbar() {
   const { user, signOut, profile, updateVehicleType, updateChargeLevel, updatePreferences } = useAuth()
   const reduceMotion = useReducedMotion()
   const [activeSection, setActiveSection] = useState<string>(NAV_SECTION_HASHES[0] ?? '#overview')
-  const startPath = user ? '/map' : '/auth'
+  const startPath = DEMO_SHOWCASE || user ? '/map' : '/auth'
 
   // Sync vehicle type from profile if logged in
   useEffect(() => {

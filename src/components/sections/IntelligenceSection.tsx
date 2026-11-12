@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
 import type { IntelligenceItem } from '../../types'
+import { DEMO_SHOWCASE, SHOWCASE_COPY } from '../../config/showcase'
+import { TerminalShowcase } from '../showcase/ShowcaseBlocks'
 
 const baseLogs = [
   '[12:40:02.184] ingest terrain_tile lat=32.0136 lng=35.8734 res=512m … ok',
@@ -113,17 +115,19 @@ function ElevationTerminal({ consoleBanner }: { consoleBanner: string }) {
 
 export function IntelligenceSection() {
   const m = useScrollMotionProps()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [open, setOpen] = useState<string>('gemini')
 
   const items: IntelligenceItem[] = useMemo(
     () => [
-      { id: 'gemini', title: t('int.gemini.t'), description: t('int.gemini.d') },
+      DEMO_SHOWCASE
+        ? { id: 'gemini', title: SHOWCASE_COPY[locale].geminiTitle, description: SHOWCASE_COPY[locale].geminiDesc }
+        : { id: 'gemini', title: t('int.gemini.t'), description: t('int.gemini.d') },
       { id: 'maps', title: t('int.maps.t'), description: t('int.maps.d') },
       { id: 'elevation', title: t('int.elev.t'), description: t('int.elev.d') },
       { id: 'analytics', title: t('int.analytics.t'), description: t('int.analytics.d') },
     ],
-    [t]
+    [t, locale]
   )
 
   return (
@@ -194,7 +198,11 @@ export function IntelligenceSection() {
               <GeminiSignalVisual />
             </div>
             <div className="mt-6 lg:absolute lg:bottom-[-1rem] lg:right-[-1rem] lg:mt-0 lg:w-[min(100%,400px)]">
-              <ElevationTerminal consoleBanner={t('int.consoleBanner')} />
+              {DEMO_SHOWCASE ? (
+                <TerminalShowcase />
+              ) : (
+                <ElevationTerminal consoleBanner={t('int.consoleBanner')} />
+              )}
             </div>
           </div>
         </div>
