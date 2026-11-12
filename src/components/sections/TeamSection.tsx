@@ -3,6 +3,7 @@ import { useMemo, useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
+import { DEMO_SHOWCASE } from '../../config/showcase'
 
 interface TeamMemberExtended {
   id: string
@@ -63,7 +64,7 @@ export function TeamSection() {
                 : 'نتاليا الحجاوي'
             : t(m.id === 'humam' ? 'team.n1' : m.id === 'heba' ? 'team.n2' : 'team.n3'),
         role:
-          locale === 'ar' && m.id === 'humam'
+          locale === 'ar' && m.id === 'humam' && !DEMO_SHOWCASE
             ? 'قائد الذكاء الاصطناعي'
             : t(m.id === 'humam' ? 'team.r1' : m.id === 'heba' ? 'team.r2' : 'team.r3'),
         university: m.university ? t(m.university) : undefined,
@@ -125,7 +126,8 @@ export function TeamSection() {
               >
                 {member.role}
               </motion.p>
-              {(['humam', 'heba', 'natalia'] as const).includes(member.id as 'humam' | 'heba' | 'natalia') && (
+              {/* "Founder" badge is not shown in the showcase (titles there are plain: Developer / Team member). */}
+              {!DEMO_SHOWCASE && (['humam', 'heba', 'natalia'] as const).includes(member.id as 'humam' | 'heba' | 'natalia') && (
                 <span
                   className={`mt-3 inline-flex w-fit rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition ${teamActive
                       ? 'border-toxic/70 text-toxic shadow-[0_0_22px_-6px_rgba(54,255,151,0.95)] [background-image:linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.04)),repeating-linear-gradient(115deg,rgba(255,255,255,0.09)_0px,rgba(255,255,255,0.09)_2px,rgba(255,255,255,0.02)_2px,rgba(255,255,255,0.02)_5px)]'

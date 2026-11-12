@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react'
 import { translations, type TranslationKey } from '../i18n/translations'
+import { DEMO_SHOWCASE, SHOWCASE_TEXT } from '../config/showcase'
 import type { LocaleCode } from '../types/profile'
 
 interface LocaleCtx {
@@ -52,8 +53,13 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr'
   }, [locale])
 
+  // Showcase builds look in SHOWCASE_TEXT first (honest, "planned" wording), then fall back to the normal copy.
   const t = useCallback(
-    (key: TranslationKey) => translations[locale][key] ?? translations.en[key] ?? key,
+    (key: TranslationKey) =>
+      (DEMO_SHOWCASE ? SHOWCASE_TEXT[locale][key] : undefined) ??
+      translations[locale][key] ??
+      translations.en[key] ??
+      key,
     [locale]
   )
 
