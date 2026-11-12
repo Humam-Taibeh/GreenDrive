@@ -90,6 +90,9 @@ export const SHOWCASE_TEXT: Record<ShowcaseLocale, Partial<Record<TranslationKey
     'int.analytics.t': 'Real-time analytics (planned)',
     'int.analytics.d': 'Planned: CO₂, fuel and time differences across route variants.',
 
+    'nav.contact': 'Team',
+    'team.kicker': 'Team',
+    'team.title': 'The team behind GreenDrive.',
     'team.lead': 'A team of three students from Al-Zaytoonah University and the University of Jordan, built at the Google Antigravity Hackathon.',
     'team.r1': 'Developer (built with AI coding tools)',
     'team.r2': 'Team member',
@@ -125,6 +128,9 @@ export const SHOWCASE_TEXT: Record<ShowcaseLocale, Partial<Record<TranslationKey
     'int.analytics.t': 'تحليلات لحظية (مخطّط)',
     'int.analytics.d': 'مخطّط: فروقات CO₂ والوقود والزمن بين بدائل المسار.',
 
+    'nav.contact': 'الفريق',
+    'team.kicker': 'الفريق',
+    'team.title': 'الفريق وراء GreenDrive.',
     'team.lead': 'فريق من ثلاثة طلاب من جامعة الزيتونة الأردنية والجامعة الأردنية، بُني في هاكاثون Google Antigravity.',
     'team.r1': 'مطوّر (بُني بأدوات برمجة بالذكاء الاصطناعي)',
     'team.r2': 'عضو في الفريق',
