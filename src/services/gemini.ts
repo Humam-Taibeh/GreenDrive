@@ -274,7 +274,9 @@ export async function sendGeminiMessage(
   
   if (!apiKey) {
     console.error('[AI Core] No valid API Key (Gemini or OpenRouter) found in .env')
-    return isAr ? 'خطأ: مفتاح AI مفقود. يرجى ضبط الإعدادات.' : 'Tactical error: AI Core Key missing. Check environment configuration.'
+    return isAr
+      ? 'المساعد الذكي غير متصل حالياً. ما زالت كل أرقام المسارات (الوقود والتكلفة والانبعاثات) متاحة في اللوحة.'
+      : 'The AI assistant is not connected yet. All route numbers (fuel, cost and CO₂) are still available in the panel.'
   }
 
   const endpoint = useOpenRouter
@@ -403,6 +405,6 @@ RESPONSE RULES:
       provider: useOpenRouter ? 'OpenRouter' : 'Gemini',
       endpoint
     })
-    return isAr ? 'عذراً، واجهت مشكلة في الاتصال بالنظام الذكي. يرجى المحاولة مرة أخرى.' : `Tactical error: Connection to AI core interrupted (${err.message}). Please retry.`
+    return isAr ? 'عذراً، واجهت مشكلة في الاتصال بالنظام الذكي. يرجى المحاولة مرة أخرى.' : 'The AI assistant could not be reached right now. Please try again in a moment.'
   }
 }

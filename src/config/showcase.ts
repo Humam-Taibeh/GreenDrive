@@ -2,7 +2,7 @@
  * Showcase mode — public design preview of GreenDrive.
  *
  * Enabled with VITE_DEMO_MODE=showcase (see `.env.showcase` / `npm run build:showcase`).
- * When on: Google Maps is never loaded, no AI provider (Gemini / OpenRouter) is called,
+ * When on: the map is never loaded, no AI provider (Gemini / OpenRouter) is called,
  * no route analysis runs, and nothing shows invented routes, ascent, fuel or CO₂ numbers.
  *
  * `DEMO_SHOWCASE` is a build-time constant, so the map / AI code paths that are gated on
@@ -74,7 +74,7 @@ export const SHOWCASE_TEXT: Record<ShowcaseLocale, Partial<Record<TranslationKey
     'how.kicker': 'The design',
     'how.title': 'How it is designed to work',
     'how.lead': 'The planned flow in four steps. It is still under development and does not run in this showcase.',
-    'how.s1.desc': 'Planned: you enter an origin and a destination, and the app would request routes and terrain data from Google Maps.',
+    'how.s1.desc': 'Planned: you enter an origin and a destination, and the app would request real road routes and terrain data.',
     'how.s2.desc': 'Designed: elevation and road data would feed a fuel model to favor the lowest-consumption route.',
     'how.s3.desc': 'Planned: a comparison view would show the Eco-Friendly, Fastest and Cheapest options with fuel and CO₂ estimates.',
     'how.s4.desc': 'Planned: each trip would add to a personal record of fuel and CO₂ savings.',
@@ -83,7 +83,7 @@ export const SHOWCASE_TEXT: Record<ShowcaseLocale, Partial<Record<TranslationKey
     'int.lead': 'GreenDrive is designed to use AI and mapping APIs for sustainable navigation. None of them are active in this showcase.',
     'int.gemini.t': 'Gemini AI integration (planned)',
     'int.gemini.d': 'Planned: Gemini would interpret driving context to suggest eco-driving tips. It is not active in this showcase.',
-    'int.maps.t': 'Google Maps API (planned)',
+    'int.maps.t': 'OpenStreetMap routing (planned)',
     'int.maps.d': 'Planned: traffic-aware routes, distance matrices and Places search feeding the route optimizer.',
     'int.elev.t': 'Elevation intelligence (planned)',
     'int.elev.d': 'Planned: grade and ascent modeling to estimate fuel use, since a flatter detour can beat a shorter hill climb.',

@@ -20,7 +20,7 @@ const LandingPage = lazy(async () => {
   return { default: mod.LandingPage }
 })
 
-// Showcase mode: the map page (Google Maps + AI) is never imported, so it is left out of the bundle.
+// Showcase mode: the map page (map + AI) is never imported, so it is left out of the bundle.
 // The condition must stay a literal `import.meta.env` comparison so the bundler can drop the branch.
 const MapViewPage = import.meta.env.VITE_DEMO_MODE === 'showcase'
   ? null
@@ -104,7 +104,7 @@ function ThemedShell() {
     let raf = 0
     let frames = 0
     let lowFpsHits = 0
-    let sampleStart = performance.now()
+    let sampleStart = performance.now() + 3000 // skip startup jank
 
     const loop = (now: number) => {
       frames += 1
@@ -113,16 +113,11 @@ function ThemedShell() {
         const fps = (frames * 1000) / elapsed
         frames = 0
         sampleStart = now
-        if (fps < 50) {
+        if (fps < 20) {
           lowFpsHits += 1
-          if (lowFpsHits >= 2) {
+          if (lowFpsHits >= 4) {
             setAutoDisabled(true)
             setMeshDisabled(true)
-            try {
-              localStorage.setItem('gd-disable-mesh', '1')
-            } catch {
-              /* ignore */
-            }
             return
           }
         } else {
@@ -149,7 +144,7 @@ function ThemedShell() {
   }, [])
 
   return (
-    <LazyMotion features={domMax} strict>
+    <LazyMotion features={domMax}>
       <InitialLoader />
       {showMesh && (
         <Suspense fallback={null}>

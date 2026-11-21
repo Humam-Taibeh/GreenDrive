@@ -91,7 +91,7 @@ export function TerminalShowcase() {
   const { locale } = useLocale()
   const c = SHOWCASE_COPY[locale]
   return (
-    <div className="flex h-full min-h-[200px] items-center rounded-3xl border border-toxic/25 bg-[#020705] p-6 font-mono text-xs leading-relaxed text-toxic/90 sm:p-8">
+    <div className="flex h-full min-h-[200px] items-center bg-[#020705] p-6 font-mono text-xs leading-relaxed text-toxic/90 sm:p-8">
       <p role="note">{c.terminalNote}</p>
     </div>
   )

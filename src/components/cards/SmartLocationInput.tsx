@@ -1,61 +1,17 @@
 /**
- * SmartLocationInput — From / To input with:
- *  - Google Places Autocomplete (typed search with real-time suggestions)
- *  - Current GPS location button (→ reverse geocoded text)
- *  - Recent locations dropdown
- *  - Swap button
- *  - Coordinate display for selected point
- *
- * Places Autocomplete is attached to the native <input> via the Maps JS API.
+ * SmartLocationInput — From / To fields with:
+ *  - live place search (OpenStreetMap / Photon — free, no API key)
+ *  - current-location (GPS) button
+ *  - favourites + recent places when the field is focused and empty
+ *  - swap button
  */
-import { useState, useId, useRef, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import type { GeoResult, SavedLocation } from '../../hooks/useReverseGeocode'
-import { getCurrentPosition, getRecentLocations } from '../../hooks/useReverseGeocode'
-import { useReverseGeocode } from '../../hooks/useReverseGeocode'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { getCurrentPosition, getRecentLocations, saveRecentLocation } from '../../hooks/useReverseGeocode'
+import type { SavedLocation } from '../../hooks/useReverseGeocode'
+import { reverseGeocodeName, searchPlaces } from '../../lib/geo'
+import type { PlaceSuggestion } from '../../lib/geo'
 import { useLocale } from '../../contexts/LocaleContext'
 import type { UserSavedLocation } from '../../types'
-
-/* ── icons ── */
-const IconGPS = () => (
-  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="3" />
-    <path strokeLinecap="round" d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-    <circle cx="12" cy="12" r="8" strokeOpacity={0.3} />
-  </svg>
-)
-
-const IconSwap = () => (
-  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4" />
-  </svg>
-)
-
-const IconClock = () => (
-  <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="9" />
-    <path strokeLinecap="round" d="M12 7v5l3 3" />
-  </svg>
-)
-
-const IconClear = () => (
-  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-    <path strokeLinecap="round" d="M6 18 18 6M6 6l12 12" />
-  </svg>
-)
-
-const IconPin = () => (
-  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z" />
-    <circle cx="12" cy="10" r="2.5" />
-  </svg>
-)
-
-const IconStar = ({ filled }: { filled?: boolean }) => (
-  <svg className={`h-4 w-4 ${filled ? 'fill-amber-400 text-amber-400' : 'fill-none text-zinc-400'}`} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-  </svg>
-)
 
 export interface LocationPoint {
   display: string
@@ -63,291 +19,314 @@ export interface LocationPoint {
   lng: number
 }
 
-/* ── Places Autocomplete hook ─────────────────────────────────── */
+const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
 
-function usePlacesAutocomplete(
-  inputRef: React.RefObject<HTMLInputElement | null>,
-  onPlace: (point: LocationPoint) => void,
-  apiReady?: boolean,
-) {
-  const listenerRef = useRef<google.maps.MapsEventListener | null>(null)
-  const acRef = useRef<google.maps.places.Autocomplete | null>(null)
+const IconGPS = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" {...stroke}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    <circle cx="12" cy="12" r="7.5" opacity={0.35} />
+  </svg>
+)
+const IconSwap = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" {...stroke}>
+    <path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4" />
+  </svg>
+)
+const IconClear = () => (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" {...stroke} strokeWidth={2.4}>
+    <path d="M6 18 18 6M6 6l12 12" />
+  </svg>
+)
+const IconPin = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" {...stroke}>
+    <path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z" />
+    <circle cx="12" cy="10" r="2.5" />
+  </svg>
+)
+const IconClock = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" {...stroke}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 3" />
+  </svg>
+)
+const IconStar = ({ filled }: { filled?: boolean }) => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" {...stroke} fill={filled ? 'currentColor' : 'none'}>
+    <path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3Z" />
+  </svg>
+)
 
-  useEffect(() => {
-    const el = inputRef.current
-    if (!el || typeof google === 'undefined' || !apiReady) return
-    if ((el as any).__gdAc) return
-
-    let cancelled = false
-    ;(async () => {
-      try {
-        const { Autocomplete, PlaceAutocompleteElement } = (await google.maps.importLibrary('places')) as any
-        if (cancelled || !el) return
-
-        // Future-proof side-load of the Web Component library
-        try {
-          const acElem = new PlaceAutocompleteElement()
-          acElem.locationRestriction = { country: 'JO' }
-        } catch (e) { /* ignore */ }
-
-        // Core Autocomplete for existing input
-        const autocomplete = new Autocomplete(el, {
-          fields: ['geometry', 'formatted_address', 'name'],
-        })
-        acRef.current = autocomplete
-        ;(el as any).__gdAc = true
-
-        listenerRef.current = autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace()
-          if (!place.geometry?.location) return
-          
-          const lat = place.geometry.location.lat()
-          const lng = place.geometry.location.lng()
-          const display = place.name || place.formatted_address?.split(',').slice(0, 2).join(',').trim() || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
-
-          onPlace({ display, lat, lng })
-        })
-      } catch (err) {
-        console.warn('Places Autocomplete init error:', err)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-      if (listenerRef.current) google.maps.event.removeListener(listenerRef.current)
-      document.querySelectorAll('.pac-container').forEach((el) => el.remove())
-      acRef.current = null
-      if (el) delete (el as any).__gdAc
-    }
-  }, [apiReady, onPlace, inputRef])
+interface Row {
+  key: string
+  kind: 'result' | 'favorite' | 'recent'
+  title: string
+  subtitle: string
+  point: LocationPoint
 }
-
-/* ── LocationField ───────────────────────────────────────────── */
 
 interface FieldProps {
   id: string
   label: string
   placeholder: string
+  marker: 'A' | 'B'
   value: LocationPoint | null
-  loading: boolean
-  onGPS: () => void
-  onClear: () => void
-  onPlace: (p: LocationPoint) => void
-  dot: 'green' | 'white'
-  recent: SavedLocation[]
-  onRecentSelect: (l: SavedLocation) => void
   favorites: UserSavedLocation[]
   isSaved: boolean
-  onSave: () => void
-  onFavoriteSelect: (l: UserSavedLocation) => void
-  apiReady?: boolean
+  onSave?: () => void
+  onChange: (p: LocationPoint | null) => void
 }
 
-function LocationField({
-  id,
-  label,
-  placeholder,
-  value,
-  loading,
-  onGPS,
-  onClear,
-  onPlace,
-  dot,
-  recent,
-  onRecentSelect,
-  favorites,
-  isSaved,
-  onSave,
-  onFavoriteSelect,
-  apiReady,
-}: FieldProps) {
-  const { t } = useLocale()
-  const [showRecent, setShowRecent] = useState(false)
-  const [typed, setTyped] = useState('')
+function LocationField({ id, label, placeholder, marker, value, favorites, isSaved, onSave, onChange }: FieldProps) {
+  const { locale } = useLocale()
+  const isArabic = locale === 'ar'
+  const [text, setText] = useState(value?.display ?? '')
+  const [open, setOpen] = useState(false)
+  const [results, setResults] = useState<PlaceSuggestion[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
+  const [gpsBusy, setGpsBusy] = useState(false)
+  const [active, setActive] = useState(0)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 })
 
-  const updateCoords = useCallback(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      setCoords({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      })
-    }
-  }, [])
-
+  // Keep the text in sync when the point changes from outside (map click, GPS, swap, favourite).
   useEffect(() => {
-    if (showRecent) {
-      updateCoords()
-      window.addEventListener('resize', updateCoords)
-      window.addEventListener('scroll', updateCoords, true)
+    setText(value?.display ?? '')
+  }, [value?.display, value?.lat, value?.lng])
+
+  // Debounced, cancellable search.
+  useEffect(() => {
+    const q = text.trim()
+    if (!open || q.length < 2 || q === value?.display) {
+      setResults([])
+      setSearching(false)
+      setSearchFailed(false)
+      return
     }
+    const ctrl = new AbortController()
+    setSearching(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const r = await searchPlaces(q, ctrl.signal)
+        setResults(r)
+        setSearchFailed(false)
+        setActive(0)
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setSearchFailed(true)
+      } finally {
+        if (!ctrl.signal.aborted) setSearching(false)
+      }
+    }, 320)
     return () => {
-      window.removeEventListener('resize', updateCoords)
-      window.removeEventListener('scroll', updateCoords, true)
+      window.clearTimeout(timer)
+      ctrl.abort()
     }
-  }, [showRecent, updateCoords])
+  }, [text, open, value?.display])
 
-  const handlePlace = useCallback((p: LocationPoint) => {
-    setTyped('')
-    onPlace(p)
-  }, [onPlace])
+  // Close on outside click.
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
 
-  usePlacesAutocomplete(inputRef, handlePlace, apiReady)
+  const typing = text.trim().length >= 2 && text.trim() !== value?.display
+  const recent: SavedLocation[] = open && !typing ? getRecentLocations() : []
+
+  const rows: Row[] = typing
+    ? results.map((r) => ({
+        key: r.id,
+        kind: 'result',
+        title: r.title,
+        subtitle: r.subtitle,
+        point: { display: r.subtitle ? `${r.title}, ${r.subtitle.split(',')[0]}` : r.title, lat: r.lat, lng: r.lng },
+      }))
+    : [
+        ...favorites.map((f): Row => ({
+          key: `f-${f.id ?? f.lat}-${f.lng}`,
+          kind: 'favorite',
+          title: f.label,
+          subtitle: f.address,
+          point: { display: f.address || f.label, lat: f.lat, lng: f.lng },
+        })),
+        ...recent.map((r): Row => ({
+          key: `r-${r.lat}-${r.lng}`,
+          kind: 'recent',
+          title: r.display,
+          subtitle: '',
+          point: { display: r.display, lat: r.lat, lng: r.lng },
+        })),
+      ]
+
+  const choose = useCallback(
+    (row: Row) => {
+      saveRecentLocation({ ...row.point, savedAt: Date.now() })
+      onChange(row.point)
+      setText(row.point.display)
+      setOpen(false)
+      inputRef.current?.blur()
+    },
+    [onChange],
+  )
+
+  const locate = async () => {
+    setGpsBusy(true)
+    try {
+      const pos = await getCurrentPosition()
+      const { latitude: lat, longitude: lng } = pos.coords
+      const display = await reverseGeocodeName(lat, lng)
+      onChange({ display, lat, lng })
+      setOpen(false)
+    } catch {
+      /* permission denied / unavailable: leave the field as is */
+    } finally {
+      setGpsBusy(false)
+    }
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setOpen(false)
+    } else if (e.key === 'ArrowDown' && rows.length) {
+      e.preventDefault()
+      setOpen(true)
+      setActive((a) => (a + 1) % rows.length)
+    } else if (e.key === 'ArrowUp' && rows.length) {
+      e.preventDefault()
+      setActive((a) => (a - 1 + rows.length) % rows.length)
+    } else if (e.key === 'Enter' && open && rows[active]) {
+      e.preventDefault()
+      choose(rows[active]!)
+    }
+  }
+
+  const showList = open && (rows.length > 0 || searching || searchFailed || (typing && !searching))
+  const markerClass =
+    marker === 'A'
+      ? 'bg-toxic text-onyx shadow-[0_0_14px_-2px_rgba(54,255,151,0.8)]'
+      : 'bg-zinc-900 text-white ring-1 ring-black/10 dark:bg-white dark:text-onyx dark:ring-0'
 
   return (
-    <div className="relative flex-1" ref={containerRef}>
-      <label htmlFor={id} className="mb-1 block font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 dark:text-white/40">
+    <div ref={wrapRef} className="relative">
+      <label htmlFor={id} className="sr-only">
         {label}
       </label>
       <div
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-all duration-200 ${
-          value
-            ? 'border-toxic/50 bg-toxic/5 dark:bg-toxic/5'
-            : 'border-black/10 bg-white/80 dark:border-white/10 dark:bg-white/[0.05]'
+        className={`flex items-center gap-2.5 rounded-xl border bg-white/70 px-3 py-2 transition focus-within:border-toxic/70 focus-within:ring-2 focus-within:ring-toxic/20 dark:bg-white/[0.05] ${
+          value ? 'border-toxic/40' : 'border-black/10 dark:border-white/12'
         }`}
       >
-        <span
-          className={`h-2 w-2 shrink-0 rounded-full ${dot === 'green' ? 'bg-toxic shadow-[0_0_6px_rgba(54,255,151,0.8)]' : 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.5)]'}`}
-          aria-hidden
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${markerClass}`}>
+          {marker}
+        </span>
+        <input
+          ref={inputRef}
+          id={id}
+          type="text"
+          value={text}
+          autoComplete="off"
+          spellCheck={false}
+          role="combobox"
+          aria-expanded={showList}
+          aria-autocomplete="list"
+          placeholder={placeholder}
+          onChange={(e) => {
+            setText(e.target.value)
+            setOpen(true)
+            if (value) onChange(null)
+          }}
+          onFocus={(e) => {
+            setOpen(true)
+            e.currentTarget.select()
+          }}
+          onKeyDown={onKeyDown}
+          className="min-w-0 flex-1 bg-transparent py-1 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-white dark:placeholder:text-white/35"
         />
-
-        {value && !typed ? (
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">{value.display}</p>
-            <p className="font-mono text-[10px] text-zinc-400 dark:text-white/35" dir="ltr">
-              {value.lat.toFixed(5)}, {value.lng.toFixed(5)}
-            </p>
-          </div>
-        ) : (
-          <input
-            ref={inputRef}
-            id={id}
-            type="text"
-            value={typed}
-            onChange={(e) => {
-              setTyped(e.target.value)
-              if (!e.target.value) onClear()
-            }}
-            placeholder={loading ? 'Locating…' : placeholder}
-            className="input-dynamic min-w-0 flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none dark:text-white dark:placeholder:text-white/30"
-            onFocus={() => setShowRecent(true)}
-            onBlur={() => setTimeout(() => { setShowRecent(false) }, 200)}
-            autoComplete="off"
-          />
-        )}
-
-        {value && !typed && (
+        {text && (
           <button
             type="button"
+            aria-label={isArabic ? 'مسح' : 'Clear'}
             onClick={() => {
-              setTyped(value.display)
-              setTimeout(() => inputRef.current?.focus(), 50)
+              setText('')
+              onChange(null)
+              inputRef.current?.focus()
             }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:text-zinc-700 dark:hover:text-white/70"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-            </svg>
+            <IconClear />
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={onGPS}
-          disabled={loading}
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all ${
-            loading ? 'animate-pulse text-toxic/50' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-white/70'
-          }`}
-        >
-          <IconGPS />
-        </button>
-
-        {value && (
+        {value && onSave && (
           <button
             type="button"
+            aria-label={isArabic ? 'حفظ في المفضلة' : 'Save to favourites'}
+            aria-pressed={isSaved}
             onClick={onSave}
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all ${
-              isSaved ? 'text-amber-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-white/70'
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition hover:bg-black/5 dark:hover:bg-white/10 ${
+              isSaved ? 'text-amber-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-white'
             }`}
           >
             <IconStar filled={isSaved} />
           </button>
         )}
-
-        {value && (
-          <button
-            type="button"
-            onClick={() => { setTyped(''); onClear() }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:text-red-400"
-          >
-            <IconClear />
-          </button>
-        )}
+        <button
+          type="button"
+          aria-label={isArabic ? 'استخدم موقعي' : 'Use my location'}
+          onClick={locate}
+          disabled={gpsBusy}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition hover:bg-toxic/15 hover:text-toxic ${
+            gpsBusy ? 'animate-pulse text-toxic' : 'text-zinc-500 dark:text-white/55'
+          }`}
+        >
+          <IconGPS />
+        </button>
       </div>
 
-      {showRecent && (recent.length > 0 || favorites.length > 0) && !value && !typed && createPortal(
-        <div 
-          className="fixed z-[9999] overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xl dark:border-white/10 dark:bg-zinc-900"
-          style={{ 
-            top: coords.top + 4, 
-            left: coords.left, 
-            width: coords.width,
-          }}
+      {showList && (
+        <ul
+          role="listbox"
+          className="absolute inset-x-0 top-full z-[1200] mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-black/10 bg-white p-1 shadow-[0_18px_50px_-16px_rgba(0,0,0,0.45)] dark:border-white/12 dark:bg-zinc-900"
         >
-          {favorites.length > 0 && (
-            <div className="border-b border-black/5 pb-1 dark:border-white/5">
-              <p className="flex items-center gap-1.5 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-amber-500/80">
-                <IconStar filled /> {t('map.favorites')}
-              </p>
-              {favorites.map((loc) => (
-                <button
-                  key={loc.id}
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); onFavoriteSelect(loc); setTyped(''); setShowRecent(false) }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-start transition hover:bg-zinc-50 dark:hover:bg-white/[0.05]"
-                >
-                  <span className="text-amber-400/70"><IconPin /></span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-800 dark:text-white">{loc.label}</p>
-                    <p className="truncate text-[10px] text-zinc-400 dark:text-white/30">{loc.address}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+          {searching && rows.length === 0 && (
+            <li className="px-3 py-2.5 text-xs text-zinc-500 dark:text-white/45">{isArabic ? 'جاري البحث…' : 'Searching…'}</li>
           )}
-          {recent.length > 0 && (
-            <div>
-              <p className="flex items-center gap-1.5 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 dark:text-white/35">
-                <IconClock /> {t('map.recent')}
-              </p>
-              {recent.map((loc) => (
-                <button
-                  key={`${loc.lat}-${loc.lng}`}
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); onRecentSelect(loc); setTyped(''); setShowRecent(false) }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-start transition hover:bg-zinc-50 dark:hover:bg-white/[0.05]"
-                >
-                  <span className="text-toxic/70"><IconPin /></span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-800 dark:text-white">{loc.display}</p>
-                    <p className="font-mono text-[10px] text-zinc-400 dark:text-white/30">{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+          {searchFailed && (
+            <li className="px-3 py-2.5 text-xs text-amber-600 dark:text-amber-300">
+              {isArabic ? 'تعذّر البحث الآن. يمكنك النقر على الخريطة لتحديد النقطة.' : "Search is unavailable right now. You can click the map to set the point."}
+            </li>
           )}
-        </div>,
-        document.body
+          {typing && !searching && !searchFailed && rows.length === 0 && (
+            <li className="px-3 py-2.5 text-xs text-zinc-500 dark:text-white/45">{isArabic ? 'لا توجد نتائج.' : 'No results.'}</li>
+          )}
+          {rows.map((row, i) => (
+            <li key={row.key} role="option" aria-selected={i === active}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(row)}
+                onMouseEnter={() => setActive(i)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition ${
+                  i === active ? 'bg-toxic/12' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
+                }`}
+              >
+                <span className={row.kind === 'favorite' ? 'text-amber-400' : row.kind === 'recent' ? 'text-zinc-400 dark:text-white/40' : 'text-toxic'}>
+                  {row.kind === 'favorite' ? <IconStar filled /> : row.kind === 'recent' ? <IconClock /> : <IconPin />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-zinc-900 dark:text-white">{row.title}</span>
+                  {row.subtitle && <span className="block truncate text-[11px] text-zinc-500 dark:text-white/40">{row.subtitle}</span>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
 }
-
-/* ── Main component ──────────────────────────────────────────── */
 
 interface Props {
   origin: LocationPoint | null
@@ -362,8 +341,6 @@ interface Props {
   }
   favorites?: UserSavedLocation[]
   onSaveLocation?: (p: LocationPoint) => void
-  onFavoriteSelect?: (l: UserSavedLocation) => void
-  apiReady?: boolean
 }
 
 export function SmartLocationInput({
@@ -374,110 +351,54 @@ export function SmartLocationInput({
   labels = {},
   favorites = [],
   onSaveLocation,
-  onFavoriteSelect,
-  apiReady,
 }: Props) {
   const id = useId()
-  const { t } = useLocale()
-  const { resolve, loading } = useReverseGeocode()
-  const [gpsTarget, setGpsTarget] = useState<'origin' | 'destination' | null>(null)
-  const recent = getRecentLocations()
+  const { locale } = useLocale()
+  const isArabic = locale === 'ar'
+  const { from = 'From', to = 'To', fromPlaceholder = 'Search or click the map', toPlaceholder = 'Where to?' } = labels
 
-  const {
-    from = 'From',
-    to = 'To',
-    fromPlaceholder = 'Type or use GPS…',
-    toPlaceholder = 'Type destination…',
-  } = labels
-
-  async function handleGPS(field: 'origin' | 'destination') {
-    setGpsTarget(field)
-    try {
-      const pos = await getCurrentPosition()
-      const { latitude: lat, longitude: lng } = pos.coords
-      const result: GeoResult = await resolve(lat, lng)
-      const point: LocationPoint = { display: result.display, lat: result.lat, lng: result.lng }
-      if (field === 'origin') onOriginChange(point)
-      else onDestinationChange(point)
-    } catch (err) {
-      console.warn('GPS error:', err)
-    } finally {
-      setGpsTarget(null)
-    }
-  }
-
-  function handleSwap() {
-    const tmp = origin
+  const swap = () => {
+    const o = origin
     onOriginChange(destination)
-    onDestinationChange(tmp)
+    onDestinationChange(o)
   }
+  const saved = (p: LocationPoint | null) => !!p && favorites.some((f) => f.lat === p.lat && f.lng === p.lng)
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white/60 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.04]">
-      <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-toxic">
-        📍 {t('map.routePlanner')}
-      </p>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-2">
-        <LocationField
-          id={`${id}-from`}
-          label={from}
-          placeholder={fromPlaceholder}
-          value={origin}
-          loading={gpsTarget === 'origin' && loading}
-          onGPS={() => handleGPS('origin')}
-          onClear={() => onOriginChange(null)}
-          onPlace={onOriginChange}
-          dot="green"
-          recent={recent}
-          onRecentSelect={(l) => onOriginChange({ display: l.display, lat: l.lat, lng: l.lng })}
-          favorites={favorites}
-          isSaved={favorites.some(f => f.lat === origin?.lat && f.lng === origin?.lng)}
-          onSave={() => origin && onSaveLocation?.(origin)}
-          onFavoriteSelect={(l) => {
-            onOriginChange({ display: l.address, lat: l.lat, lng: l.lng })
-            onFavoriteSelect?.(l)
-          }}
-          apiReady={apiReady}
-        />
-
-        <button
-          type="button"
-          onClick={handleSwap}
-          className="mx-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white/80 text-zinc-500 transition hover:border-toxic/50 hover:text-toxic dark:border-white/10 dark:bg-white/[0.05] dark:text-white/50 sm:mb-0 sm:mt-6"
-        >
-          <span className="rotate-90 sm:rotate-0"><IconSwap /></span>
-        </button>
-
-        <LocationField
-          id={`${id}-to`}
-          label={to}
-          placeholder={toPlaceholder}
-          value={destination}
-          loading={gpsTarget === 'destination' && loading}
-          onGPS={() => handleGPS('destination')}
-          onClear={() => onDestinationChange(null)}
-          onPlace={onDestinationChange}
-          dot="white"
-          recent={recent}
-          onRecentSelect={(l) => onDestinationChange({ display: l.display, lat: l.lat, lng: l.lng })}
-          favorites={favorites}
-          isSaved={favorites.some(f => f.lat === destination?.lat && f.lng === destination?.lng)}
-          onSave={() => destination && onSaveLocation?.(destination)}
-          onFavoriteSelect={(l) => {
-            onDestinationChange({ display: l.address, lat: l.lat, lng: l.lng })
-            onFavoriteSelect?.(l)
-          }}
-          apiReady={apiReady}
-        />
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1 space-y-2.5">
+      <LocationField
+        id={`${id}-from`}
+        label={from}
+        placeholder={fromPlaceholder}
+        marker="A"
+        value={origin}
+        favorites={favorites}
+        isSaved={saved(origin)}
+        onSave={onSaveLocation && origin ? () => onSaveLocation(origin) : undefined}
+        onChange={onOriginChange}
+      />
+      <LocationField
+        id={`${id}-to`}
+        label={to}
+        placeholder={toPlaceholder}
+        marker="B"
+        value={destination}
+        favorites={favorites}
+        isSaved={saved(destination)}
+        onSave={onSaveLocation && destination ? () => onSaveLocation(destination) : undefined}
+        onChange={onDestinationChange}
+      />
       </div>
-
-      <p className="mt-3 flex items-center gap-1.5 text-[10px] text-zinc-400 dark:text-white/30">
-        <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 8v4m0 4h.01" />
-        </svg>
-        {t('map.searchHint')}
-      </p>
+      <button
+        type="button"
+        onClick={swap}
+        disabled={!origin && !destination}
+        aria-label={isArabic ? 'تبديل نقطتي الانطلاق والوصول' : 'Swap start and destination'}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white/80 text-zinc-600 transition hover:border-toxic/60 hover:text-toxic disabled:opacity-40 dark:border-white/15 dark:bg-white/[0.06] dark:text-white/70"
+      >
+        <IconSwap />
+      </button>
     </div>
   )
 }

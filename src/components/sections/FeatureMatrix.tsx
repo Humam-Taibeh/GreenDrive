@@ -5,10 +5,8 @@ import { FeatureCard } from '../cards/FeatureCard'
 import { useScrollMotionProps, staggerContainer, staggerItem } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
 import type { FeatureCardData } from '../../types'
-import { DEMO_SHOWCASE } from '../../config/showcase'
 
 /** The animated "Impact Score" (x/10) is a made-up number, so the showcase hides it. */
-const SHOWN_SCORE = (n: number): number | undefined => (DEMO_SHOWCASE ? undefined : n)
 
 export function FeatureMatrix() {
   const m = useScrollMotionProps()
@@ -23,7 +21,6 @@ export function FeatureMatrix() {
         subtitle: t('feat.path.sub'),
         body: t('feat.path.body'),
         footerLeft: t('feat.path.foot'),
-        score: SHOWN_SCORE(9),
         icon: 'pin',
       },
       {
@@ -32,7 +29,6 @@ export function FeatureMatrix() {
         subtitle: t('feat.carbon.sub'),
         body: t('feat.carbon.body'),
         footerLeft: t('feat.carbon.foot'),
-        score: SHOWN_SCORE(10),
         highlighted: true,
         icon: 'tree',
       },
@@ -42,7 +38,6 @@ export function FeatureMatrix() {
         subtitle: t('feat.cost.sub'),
         body: t('feat.cost.body'),
         footerLeft: t('feat.cost.foot'),
-        score: SHOWN_SCORE(8),
         icon: 'fuel',
       },
     ],

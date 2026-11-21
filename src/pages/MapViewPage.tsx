@@ -1,384 +1,613 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Bot, Crosshair, MapPin, Radar } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { BrandLogo } from '../components/brand/BrandLogo'
 import { SmartLocationInput } from '../components/cards/SmartLocationInput'
-import { GeminiCopilot } from '../components/copilot/GeminiCopilot'
 import type { LocationPoint } from '../components/cards/SmartLocationInput'
+import { GeminiCopilot } from '../components/copilot/GeminiCopilot'
 import { useLocale } from '../contexts/LocaleContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useSavedLocations } from '../hooks/useSavedLocations'
-import { getCurrentPosition, saveRecentLocation } from '../hooks/useReverseGeocode'
-import { useDirectionsRoutes } from '../lib/useDirectionsRoutes'
-import { 
-  computeTripEmissions, 
-  calculateTrafficWaste, 
-  projectYearlyImpact 
-} from '../lib/vehicleProfiles'
+import { saveRecentLocation } from '../hooks/useReverseGeocode'
+import { reverseGeocodeName } from '../lib/geo'
+import { DRIVING_EFFICIENCY, useDirectionsRoutes } from '../lib/useDirectionsRoutes'
+import { computeTripEmissions, projectYearlyImpact } from '../lib/vehicleProfiles'
 import type { VehicleType } from '../lib/vehicleProfiles'
 import type { RouteOption } from '../types'
-import {
-  sendGeminiMessage,
-  type CopilotRouteMetrics,
-} from '../services/gemini'
+import { sendGeminiMessage, type CopilotRouteMetrics } from '../services/gemini'
 
-const MAP_DEFAULT_CENTER = { lat: 31.9539, lng: 35.9106 }
-const ROUTE_COLORS = ['#36FF97', '#7CFFC4', '#B8FFE0']
+const MAP_DEFAULT_CENTER: L.LatLngTuple = [31.9539, 35.9106]
+// Free Esri Canvas basemaps (no API key): a true near-black style for dark mode, a clean light-gray one for light mode.
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas'
+const TILESETS = {
+  dark: { base: `${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, labels: `${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}` },
+  light: { base: `${ESRI}/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`, labels: `${ESRI}/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}` },
+}
+const ATTRIBUTION = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
-const ICON_SIZE = 14
-const ICON_STROKE = 1.5
+const VEHICLES: VehicleType[] = ['petrol', 'diesel', 'hybrid', 'electric']
 
+type Badge = 'best' | 'fastest' | 'eco' | 'alt'
 
-const CalculateButton = memo(function CalculateButton({ onClick, disabled, loading, isDark }: { onClick: () => void; disabled: boolean; loading: boolean; isDark: boolean }) {
-  const { t } = useLocale()
-  
-  const bgStyle = isDark 
-    ? 'bg-toxic text-onyx shadow-[0_0_28px_-10px_rgba(54,255,151,0.7)] hover:shadow-[0_0_42px_-8px_rgba(54,255,151,0.85)]' 
-    : 'bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 shadow-emerald-600/20'
+interface RouteView {
+  route: RouteOption
+  badge: Badge
+  title: string
+  tagline: string
+  stats: ReturnType<typeof computeTripEmissions>
+  co2VsWorstPct: number
+}
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled || loading}
-      className={`w-full rounded-xl border border-transparent px-5 py-3 text-sm font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-45 ${bgStyle}`}
-    >
-      {loading ? t('map.load') : t('map.analyze')}
-    </button>
+const AI_CONFIGURED = Boolean(
+  (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() ||
+    (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.trim(),
+)
+
+/** Deterministic summary from the computed numbers — used when no AI key is configured. */
+function localBriefing(view: RouteView, all: RouteView[], vehicle: VehicleType, ar: boolean): string {
+  const { route, stats } = view
+  const isEv = vehicle === 'electric'
+  const energy = isEv ? stats.label : `${(stats.fuelLiters ?? 0).toFixed(2)} L`
+  const parts: string[] = []
+  parts.push(
+    ar
+      ? `${view.title}: ${route.distanceKm.toFixed(1)} كم خلال ${route.durationMin} دقيقة، تستهلك نحو ${energy} وتكلّف ${stats.costJODStr} دينار وتنتج ${stats.co2Kg.toFixed(2)} كغ CO₂.`
+      : `${view.title}: ${route.distanceKm.toFixed(1)} km in ${route.durationMin} min, using about ${energy}, costing ${stats.costJODStr} JOD and emitting ${stats.co2Kg.toFixed(2)} kg of CO₂.`,
   )
-})
+  const others = all.filter((v) => v.route.id !== route.id)
+  if (others.length) {
+    const worst = others.reduce((a, b) => (b.stats.co2Kg > a.stats.co2Kg ? b : a))
+    const dCo2 = worst.stats.co2Kg - stats.co2Kg
+    const dJod = worst.stats.costJOD - stats.costJOD
+    if (dCo2 > 0.005) {
+      parts.push(
+        ar
+          ? `مقارنة بـ${worst.title} توفّر ${dCo2.toFixed(2)} كغ CO₂ و${dJod.toFixed(2)} دينار في الرحلة الواحدة.`
+          : `Compared with ${worst.title}, it saves ${dCo2.toFixed(2)} kg of CO₂ and ${dJod.toFixed(2)} JOD per trip.`,
+      )
+    }
+  }
+  if (route.ascentStatus === 'measured' && (route.ascentM ?? 0) > 100) {
+    parts.push(
+      ar
+        ? `يتضمن المسار صعوداً بنحو ${route.ascentM} م، وهذا يرفع الاستهلاك مقارنة بطريق مستوٍ.`
+        : `The route climbs about ${route.ascentM} m, which raises consumption compared with flat terrain.`,
+    )
+  }
+  if (route.distanceKm <= 2.5) {
+    parts.push(ar ? 'الرحلة قصيرة، والمشي أو الدراجة خيار أنظف وأوفر.' : 'This trip is short — walking or cycling would be cleaner and cheaper.')
+  }
+  return parts.join(' ')
+}
+
+/* ── Leaflet helpers ─────────────────────────────────────────────── */
+
+function pinIcon(label: 'A' | 'B') {
+  const fill = label === 'A' ? '#36FF97' : '#FFFFFF'
+  const html = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="50" viewBox="0 0 42 54" class="gd-pin-svg">
+    <path d="M21 2C11.6 2 4 9.6 4 19c0 13.1 15.2 30.4 16 31.1a1.4 1.4 0 0 0 2 0C22.8 49.4 38 32.1 38 19 38 9.6 30.4 2 21 2Z" fill="${fill}" stroke="rgba(0,0,0,.6)" stroke-width="1.8"/>
+    <circle cx="21" cy="19" r="9" fill="#050706"/>
+    <text x="21" y="23" text-anchor="middle" font-size="12" font-family="Inter,Arial,sans-serif" font-weight="800" fill="${fill}">${label}</text>
+  </svg>`
+  return L.divIcon({ className: 'gd-pin', html, iconSize: [38, 50], iconAnchor: [19, 48] })
+}
+
+/* ── UI atoms ────────────────────────────────────────────────────── */
+
+const Icon = {
+  back: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 rtl:-scale-x-100" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  ),
+  plus: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  ),
+  minus: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M5 12h14" />
+    </svg>
+  ),
+  fit: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" />
+    </svg>
+  ),
+  spark: (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+      <path d="M12 2l1.8 5.4L19 9l-5.2 1.6L12 16l-1.8-5.4L5 9l5.2-1.6L12 2zm7 11l.9 2.6L22.5 16l-2.6.9L19 19.5l-.9-2.6-2.6-.9 2.6-.9L19 13z" />
+    </svg>
+  ),
+}
+
+const MapButton = ({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) => (
+  <button
+    type="button"
+    aria-label={label}
+    title={label}
+    onClick={onClick}
+    className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-white/90 text-zinc-800 shadow-lg backdrop-blur-md transition hover:border-toxic/60 hover:text-toxic dark:border-white/12 dark:bg-zinc-900/85 dark:text-white"
+  >
+    {children}
+  </button>
+)
+
+const Metric = ({ label, value, unit }: { label: string; value: string; unit: string }) => (
+  <div className="min-w-0 rounded-lg bg-black/[0.04] px-2.5 py-2 dark:bg-white/[0.05]">
+    <p className="truncate text-[10px] font-medium text-zinc-500 dark:text-white/45">{label}</p>
+    <p className="mt-0.5 truncate text-sm font-bold tabular-nums text-zinc-900 dark:text-white" dir="ltr">
+      {value} <span className="text-[10px] font-medium text-zinc-500 dark:text-white/45">{unit}</span>
+    </p>
+  </div>
+)
+
+const badgeStyle: Record<Badge, string> = {
+  best: 'bg-amber-400/15 text-amber-600 dark:text-amber-300',
+  fastest: 'bg-sky-400/15 text-sky-600 dark:text-sky-300',
+  eco: 'bg-toxic/15 text-emerald-700 dark:text-toxic',
+  alt: 'bg-zinc-500/10 text-zinc-600 dark:text-white/60',
+}
 
 const RouteCard = memo(function RouteCard({
-  route,
+  view,
   selected,
+  analyzing,
+  isArabic,
+  vehicle,
   onSelect,
   onAnalyze,
-  color,
-  isDark,
-  analyzing
 }: {
-  route: RouteOption & { categoryTitle: string; descriptor: string }
+  view: RouteView
   selected: boolean
+  analyzing: boolean
+  isArabic: boolean
+  vehicle: VehicleType
   onSelect: () => void
   onAnalyze: () => void
-  color: string
-  isDark: boolean
-  analyzing?: boolean
 }) {
-  const { t } = useLocale()
-  const isOptimal = route.categoryTitle.includes('Optimal') || route.categoryTitle.includes('الأمثل')
-  
-  // Refined border and background based on theme
-  const borderStyle = selected
-    ? isOptimal
-      ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400 shadow-[0_0_30px_-14px_rgba(251,191,36,0.75)]'
-      : 'border-toxic bg-toxic/10 ring-2 ring-toxic shadow-[0_0_30px_-14px_rgba(54,255,151,0.75)]'
-    : isOptimal
-      ? `border-amber-400/30 ${isDark ? 'bg-amber-400/[0.03]' : 'bg-amber-50/40'} hover:border-amber-400/50 hover:ring-1 hover:ring-amber-400/40`
-      : `${isDark ? 'border-white/12 bg-white/[0.04]' : 'border-black/10 bg-black/[0.02]'} hover:border-toxic/40 hover:ring-1 hover:ring-toxic/30`
-
-  const textPrimary = isDark ? 'text-white' : 'text-zinc-900'
-  const textSecondary = isDark ? 'text-white/60' : 'text-zinc-500'
-  const textMuted = isDark ? 'text-white/40' : 'text-zinc-400'
-
+  const { route, stats } = view
+  const isEv = vehicle === 'electric'
+  const energy = isEv ? stats.label.replace(' kWh', '') : (stats.fuelLiters ?? 0).toFixed(2)
   return (
     <div
-      className={`relative w-full cursor-pointer rounded-xl border p-3 transition-all duration-300 ${borderStyle}`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
+      className={`cursor-pointer rounded-2xl border p-3.5 transition ${
+        selected
+          ? 'border-toxic bg-toxic/[0.08] shadow-[0_0_0_1px_rgba(54,255,151,0.55),0_14px_40px_-20px_rgba(54,255,151,0.6)]'
+          : 'border-black/10 bg-white/60 hover:border-toxic/40 dark:border-white/10 dark:bg-white/[0.04]'
+      }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
-        <div className="flex flex-col items-start gap-1">
-          <p className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter ${isOptimal ? 'text-amber-500' : isDark ? 'text-white/90' : 'text-zinc-800'}`}>
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-            {route.categoryTitle}
-          </p>
-          {isOptimal && (
-            <span className="text-[9px] font-mono text-amber-500/70 normal-case tracking-normal">
-              ⚡ {t('map.fastGreenest')}
-            </span>
-          )}
-        </div>
-        <span className={`text-[10px] font-mono ${textMuted} whitespace-nowrap`}>
-          {route.descriptor}
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${badgeStyle[view.badge]}`}>{view.title}</span>
+        {view.co2VsWorstPct > 0 && (
+          <span dir="ltr" className="text-[11px] font-semibold text-emerald-600 dark:text-toxic">
+            {isArabic ? `CO₂ -${view.co2VsWorstPct}%` : `${view.co2VsWorstPct}% less CO₂`}
+          </span>
+        )}
       </div>
-      <div className="mt-3 space-y-2">
-        <div className="flex items-baseline justify-between gap-1">
-          <p className={`text-base font-bold ${textPrimary}`}>{route.durationMin} min</p>
-          <p className={`text-xs font-mono ${textSecondary}`}>{route.distanceKm.toFixed(1)} km</p>
-        </div>
+      <p className="mt-1 text-[11px] text-zinc-500 dark:text-white/45">{view.tagline}</p>
+
+      <div className="mt-2.5 flex items-baseline gap-2" dir="ltr">
+        <span className="text-2xl font-extrabold tabular-nums text-zinc-950 dark:text-white">{route.durationMin}</span>
+        <span className="text-xs font-medium text-zinc-500 dark:text-white/50">{isArabic ? 'دقيقة' : 'min'}</span>
+        <span className="mx-1 text-zinc-300 dark:text-white/20">·</span>
+        <span className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-white/75">{route.distanceKm.toFixed(1)} km</span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <Metric label={isEv ? (isArabic ? 'الطاقة' : 'Energy') : isArabic ? 'الوقود' : 'Fuel'} value={energy} unit={isEv ? 'kWh' : 'L'} />
+        <Metric label={isArabic ? 'التكلفة' : 'Cost'} value={stats.costJODStr} unit="JOD" />
+        <Metric label="CO₂" value={stats.co2Kg.toFixed(2)} unit="kg" />
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        {route.ascentStatus === 'measured' ? (
+          <p className="text-[11px] text-zinc-500 dark:text-white/45" dir="ltr">
+            ↑ {route.ascentM} m {isArabic ? 'صعود' : 'climb'}
+          </p>
+        ) : (
+          <p className="text-[11px] text-amber-600 dark:text-amber-300">
+            {isArabic ? 'الارتفاع غير متاح — حُسب على أرض مستوية' : 'Elevation unavailable — assumed flat'}
+          </p>
+        )}
         <button
           type="button"
           disabled={analyzing}
-          onClick={(e) => { e.stopPropagation(); onAnalyze(); }}
-          className={`flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-[10px] font-black uppercase tracking-widest transition ${
-            isDark 
-              ? 'bg-white/5 text-white hover:bg-white/10' 
-              : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
-          } ${analyzing ? 'opacity-50 cursor-wait' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onAnalyze()
+          }}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-toxic/35 bg-toxic/10 px-2.5 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-toxic/20 disabled:cursor-wait disabled:opacity-60 dark:text-toxic"
         >
-          <Bot size={12} className={analyzing ? 'animate-pulse text-toxic' : isDark ? 'text-toxic' : 'text-emerald-600'} />
-          {analyzing ? t('cop.thinking') : t('map.moreDetails')}
+          <span className={analyzing ? 'animate-pulse' : ''}>{Icon.spark}</span>
+          {analyzing ? (isArabic ? 'جاري التحليل…' : 'Analyzing…') : isArabic ? 'اسأل الذكاء الاصطناعي' : 'Ask AI'}
         </button>
       </div>
     </div>
   )
 })
 
-/** Placeholder card for when Google Maps can't produce a 3rd alternative path */
-const PlaceholderCard = memo(function PlaceholderCard({ slotLabel }: { slotLabel: string }) {
-  const { t } = useLocale()
-  return (
-    <div className="relative w-full rounded-xl border border-black/5 bg-black/[0.02] p-3 opacity-50 dark:border-white/6 dark:bg-white/[0.02]">
-      <div className="flex items-center justify-between">
-        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-tighter text-zinc-400 dark:text-white/30">
-          <span className="h-2 w-2 rounded-full bg-zinc-200 dark:bg-white/20" />
-          {slotLabel}
-        </p>
-        <span className="text-[10px] font-mono text-zinc-400 dark:text-white/20">{t('map.unavailable')}</span>
-      </div>
-      <div className="mt-3 space-y-2">
-        <p className="text-xs text-zinc-400 dark:text-white/25 font-mono leading-relaxed">
-          {t('map.noRoute')}
-        </p>
-        <div className="flex w-full items-center justify-center rounded-lg border border-black/8 py-2.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/20">
-          {t('map.sectorLocked')}
+const RouteSkeleton = () => (
+  <div className="space-y-3" aria-hidden>
+    {[0, 1].map((i) => (
+      <div key={i} className="rounded-2xl border border-black/10 p-3.5 dark:border-white/10">
+        <div className="gd-skeleton-bar h-4 w-28 rounded-full" />
+        <div className="gd-skeleton-bar mt-3 h-7 w-36 rounded-lg" />
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[0, 1, 2].map((j) => (
+            <div key={j} className="gd-skeleton-bar h-11 rounded-lg" />
+          ))}
         </div>
       </div>
-    </div>
-  )
-})
+    ))}
+  </div>
+)
 
+/* ── Page ────────────────────────────────────────────────────────── */
 
 export function MapViewPage() {
   const { t, locale } = useLocale()
   const { resolvedTheme } = useTheme()
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const { savedLocations, saveLocation } = useSavedLocations()
   const isArabic = locale === 'ar'
-  const isDark = resolvedTheme === 'dark' || document.documentElement.classList.contains('dark')
+  const isDark = resolvedTheme === 'dark'
 
-  const [activeTab, setActiveTab] = useState<'planner' | 'results' | 'saved'>('planner')
-  const [clickMode, setClickMode] = useState<'origin' | 'destination'>('origin')
-  
-  // ⚡ THEME SYNC: Sync HTML class with resolvedTheme for MapView sub-components
-  useEffect(() => {
-    const root = document.documentElement
-    if (resolvedTheme === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
-  }, [resolvedTheme])
   const [vehicle, setVehicle] = useState<VehicleType>((profile?.vehicleType as VehicleType) || 'petrol')
-  
-  // Sync vehicle type if profile updates (e.g. after registration)
-  useEffect(() => {
-    if (profile?.vehicleType) {
-      setVehicle(profile.vehicleType as VehicleType)
-    }
-  }, [profile?.vehicleType])
   const [origin, setOrigin] = useState<LocationPoint | null>(null)
   const [destination, setDestination] = useState<LocationPoint | null>(null)
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
-  const [analyzeTriggered, setAnalyzeTriggered] = useState(false)
-  const [mapReady, setMapReady] = useState(false)
-  const [mapError, setMapError] = useState<string | null>(null)
-  const [myLocationBusy, setMyLocationBusy] = useState(false)
   const [isCopilotOpen, setIsCopilotOpen] = useState(false)
   const [briefing, setBriefing] = useState<string | null>(null)
   const [analysisLoadingId, setAnalysisLoadingId] = useState<string | null>(null)
-  const [analysisMetrics, setAnalysisMetrics] = useState<any>(null)
+  const [analysisMetrics, setAnalysisMetrics] = useState<CopilotRouteMetrics | null>(null)
   const [localCharge, setLocalCharge] = useState<number>(() => {
     try {
       const s = localStorage.getItem('gd-charge')
       return s ? parseInt(s, 10) : 85
-    } catch { return 85 }
+    } catch {
+      return 85
+    }
   })
   const analysisAbortRef = useRef<AbortController | null>(null)
 
-  // Sync local charge if profile updates
   useEffect(() => {
-    if (profile?.currentChargePercent !== undefined) {
-      setLocalCharge(profile.currentChargePercent)
-    }
+    if (profile?.vehicleType) setVehicle(profile.vehicleType as VehicleType)
+  }, [profile?.vehicleType])
+
+  useEffect(() => {
+    if (profile?.currentChargePercent !== undefined) setLocalCharge(profile.currentChargePercent)
   }, [profile?.currentChargePercent])
 
-  // Listen for local storage changes (from Navbar settings)
   useEffect(() => {
-    const handleStorage = () => {
-      const s = localStorage.getItem('gd-charge')
-      if (s) setLocalCharge(parseInt(s))
+    const sync = () => {
+      try {
+        const s = localStorage.getItem('gd-charge')
+        if (s) setLocalCharge(parseInt(s, 10))
+      } catch {
+        /* ignore */
+      }
     }
-    window.addEventListener('storage', handleStorage)
-    // Custom event if Navbar uses dispatchEvent for same-tab sync
-    window.addEventListener('gd-charge-update', handleStorage as any)
+    window.addEventListener('storage', sync)
+    window.addEventListener('gd-charge-update', sync)
     return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener('gd-charge-update', handleStorage as any)
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('gd-charge-update', sync)
     }
   }, [])
 
-  const mapEl = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<google.maps.Map | null>(null)
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null)
-  const markerARef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null)
-  const markerBRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null)
-  const routePolysRef = useRef<google.maps.Polyline[]>([])
-  const ghostPolyRef = useRef<google.maps.Polyline | null>(null)
-  const analyzeRef = useRef<() => void>(() => {})
+  /* ── routing ── */
+  const originMemo = useMemo(() => (origin ? { lat: origin.lat, lng: origin.lng } : null), [origin])
+  const destMemo = useMemo(() => (destination ? { lat: destination.lat, lng: destination.lng } : null), [destination])
+  const directions = useDirectionsRoutes(originMemo, destMemo, vehicle)
+  const { fetchRoutes, reset } = directions
+  const hasBoth = Boolean(origin && destination)
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()
+  useEffect(() => {
+    if (!hasBoth) {
+      reset()
+      return
+    }
+    const id = window.setTimeout(fetchRoutes, 250)
+    return () => window.clearTimeout(id)
+  }, [hasBoth, fetchRoutes, reset])
 
-  const originMemo = useMemo(() => origin ? { lat: origin.lat, lng: origin.lng } : null, [origin?.lat, origin?.lng])
-  const destMemo = useMemo(() => destination ? { lat: destination.lat, lng: destination.lng } : null, [destination?.lat, destination?.lng])
+  const liveRoutes = useMemo<RouteOption[]>(() => (directions.status === 'ok' ? directions.routes : []), [directions])
 
-  const directions = useDirectionsRoutes(
-    originMemo,
-    destMemo,
-    vehicle,
+  const views = useMemo<RouteView[]>(() => {
+    if (liveRoutes.length === 0) return []
+    const withStats = liveRoutes.map((route) => ({
+      route,
+      stats: computeTripEmissions(Math.max(route.distanceKm, 0.1), route.ascentM ?? 0, DRIVING_EFFICIENCY, vehicle),
+    }))
+    const fastestId = withStats.reduce((a, b) => (b.route.durationMin < a.route.durationMin ? b : a)).route.id
+    const greenestId = withStats.reduce((a, b) => (b.stats.co2Kg < a.stats.co2Kg ? b : a)).route.id
+    const worstCo2 = Math.max(...withStats.map((w) => w.stats.co2Kg), 0.0001)
+    let alt = 0
+    const single = withStats.length === 1
+    return withStats.map(({ route, stats }): RouteView => {
+      let badge: Badge = 'alt'
+      if (single || (fastestId === greenestId && route.id === fastestId)) badge = 'best'
+      else if (route.id === fastestId) badge = 'fastest'
+      else if (route.id === greenestId) badge = 'eco'
+      if (badge === 'alt') alt += 1
+      const title =
+        badge === 'best'
+          ? isArabic ? 'الأفضل' : 'Best choice'
+          : badge === 'fastest'
+            ? isArabic ? 'الأسرع' : 'Fastest'
+            : badge === 'eco'
+              ? isArabic ? 'الأوفر والأنظف' : 'Most efficient'
+              : isArabic ? `بديل ${alt}` : `Alternative ${alt}`
+      const tagline =
+        badge === 'best'
+          ? isArabic ? 'أسرع وأقل استهلاكاً' : 'Quickest and lowest consumption'
+          : badge === 'fastest'
+            ? isArabic ? 'أقل وقت في الطريق' : 'Least time on the road'
+            : badge === 'eco'
+              ? isArabic ? 'أقل وقود وانبعاثات' : 'Lowest fuel and emissions'
+              : isArabic ? 'مسار آخر متاح' : 'Another available path'
+      return {
+        route,
+        badge,
+        title,
+        tagline,
+        stats,
+        co2VsWorstPct: Math.round(((worstCo2 - stats.co2Kg) / worstCo2) * 100),
+      }
+    })
+  }, [liveRoutes, vehicle, isArabic])
+
+  const defaultSelectedId = useMemo(() => {
+    const pick = views.find((v) => v.badge === 'best') ?? views.find((v) => v.badge === 'eco') ?? views[0]
+    return pick?.route.id ?? null
+  }, [views])
+  const effectiveSelectedId = views.some((v) => v.route.id === selectedRouteId) ? selectedRouteId : defaultSelectedId
+  const selectedView = views.find((v) => v.route.id === effectiveSelectedId) ?? null
+  const selectedRoute = selectedView?.route ?? null
+  const yearly = useMemo(
+    () => projectYearlyImpact(selectedView?.stats.costJOD ?? 0, selectedView?.stats.co2Kg ?? 0),
+    [selectedView],
   )
 
-  // Priority: Re-fetch routes immediately if vehicle changes while results are active
-  useEffect(() => {
-    if (analyzeTriggered && origin && destination) {
-      directions.fetchRoutes()
-    }
-  }, [vehicle, analyzeTriggered, origin, destination, directions.fetchRoutes])
+  /* ── map ── */
+  const mapEl = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<L.Map | null>(null)
+  const tileRef = useRef<L.LayerGroup | null>(null)
+  const markerARef = useRef<L.Marker | null>(null)
+  const markerBRef = useRef<L.Marker | null>(null)
+  const routeLayerRef = useRef<L.LayerGroup | null>(null)
+  const routeLinesRef = useRef<Map<string, { casing: L.Polyline; line: L.Polyline }>>(new Map())
+  const panelRef = useRef<HTMLElement>(null)
 
-  const mapOptions = useMemo((): google.maps.MapOptions => {
-    return {
+  const originRef = useRef(origin)
+  const destRef = useRef(destination)
+  useEffect(() => {
+    originRef.current = origin
+    destRef.current = destination
+  }, [origin, destination])
+
+  const setPoint = useCallback((which: 'origin' | 'destination', p: LocationPoint | null) => {
+    if (which === 'origin') setOrigin(p)
+    else setDestination(p)
+    if (p) saveRecentLocation({ display: p.display, lat: p.lat, lng: p.lng, savedAt: Date.now() })
+    setSelectedRouteId(null)
+    setBriefing(null)
+  }, [])
+
+  const setPointFromMap = useCallback(
+    async (which: 'origin' | 'destination', lat: number, lng: number) => {
+      const placeholder = `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+      setPoint(which, { display: placeholder, lat, lng })
+      const display = await reverseGeocodeName(lat, lng)
+      const current = which === 'origin' ? originRef.current : destRef.current
+      if (current && current.lat === lat && current.lng === lng) setPoint(which, { display, lat, lng })
+    },
+    [setPoint],
+  )
+
+  const mapActionRef = useRef(setPointFromMap)
+  useEffect(() => {
+    mapActionRef.current = setPointFromMap
+  }, [setPointFromMap])
+
+  // create the map once
+  useEffect(() => {
+    if (!mapEl.current || mapRef.current) return
+    const map = L.map(mapEl.current, {
       center: MAP_DEFAULT_CENTER,
       zoom: 12,
-      disableDefaultUI: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      clickableIcons: false,
-      backgroundColor: isDark ? '#17263c' : '#F3F5F7',
-      // Advanced Markers REQUIRE a mapId. custom 'styles' cannot be used with mapId.
-      // We use the native colorScheme instead for modern dark mode support.
-      mapId: import.meta.env.VITE_GOOGLE_MAP_ID || 'DEMO_MAP_ID',
-      colorScheme: isDark ? 'DARK' : 'LIGHT',
-    };
+      zoomControl: false,
+      attributionControl: true,
+      worldCopyJump: true,
+    })
+    map.attributionControl.setPrefix(false)
+    routeLayerRef.current = L.layerGroup().addTo(map)
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      const which = !originRef.current ? 'origin' : 'destination'
+      void mapActionRef.current(which, e.latlng.lat, e.latlng.lng)
+    })
+    mapRef.current = map
+    const linesAtMount = routeLinesRef.current
+    return () => {
+      map.remove()
+      mapRef.current = null
+      tileRef.current = null
+      markerARef.current = null
+      markerBRef.current = null
+      routeLayerRef.current = null
+      linesAtMount.clear()
+    }
+  }, [])
+
+  // tiles follow the theme
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    tileRef.current?.remove()
+    const set = isDark ? TILESETS.dark : TILESETS.light
+    // keepBuffer + updateWhenIdle:false keep neighbouring tiles loaded so panning never exposes empty (black) areas.
+    const opts = { maxNativeZoom: 16, maxZoom: 19, keepBuffer: 4, updateWhenIdle: false, updateInterval: 100 }
+    // Dark mode: base tiles are blended over a deep emerald-black background (cheap alpha compositing, no CSS filters).
+    const base = L.tileLayer(set.base, { ...opts, attribution: ATTRIBUTION, className: 'gd-tiles-base', opacity: isDark ? 0.4 : 1 })
+    const labels = L.tileLayer(set.labels, { ...opts, className: 'gd-tiles-labels', pane: 'shadowPane' })
+    tileRef.current = L.layerGroup([base, labels]).addTo(map)
+    base.bringToBack()
   }, [isDark])
 
-  const liveRoutes = useMemo<RouteOption[]>(
-    () => (directions.status === 'ok' ? directions.routes : []),
-    [directions],
-  )
+  const fitPadding = useCallback(() => {
+    const panel = panelRef.current
+    const desktop = window.matchMedia('(min-width: 1024px)').matches
+    const w = panel?.offsetWidth ?? 0
+    const h = panel?.offsetHeight ?? 0
+    if (desktop) {
+      const side = w + 56
+      return isArabic
+        ? { paddingTopLeft: L.point(48, 48), paddingBottomRight: L.point(side, 48) }
+        : { paddingTopLeft: L.point(side, 48), paddingBottomRight: L.point(48, 48) }
+    }
+    return { paddingTopLeft: L.point(32, 72), paddingBottomRight: L.point(32, Math.min(h, window.innerHeight * 0.6) + 24) }
+  }, [isArabic])
 
-  const categorizedRoutes = useMemo(() => {
-    if (liveRoutes.length === 0) return []
-
-    const routesWithMetrics = liveRoutes.map(r => {
-      const stats = computeTripEmissions(Math.max(r.distanceKm || 0, 0.1), r.ascentM ?? 60, 0.85, vehicle)
-      return {
-        ...r,
-        fuelVolume: (stats.fuelLiters ?? parseFloat(stats.label)) || 0,
-        cost: stats.costJOD || 0
+  // markers (draggable)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const sync = (
+      ref: React.MutableRefObject<L.Marker | null>,
+      point: LocationPoint | null,
+      which: 'origin' | 'destination',
+      label: 'A' | 'B',
+    ) => {
+      if (!point) {
+        ref.current?.remove()
+        ref.current = null
+        return
       }
-    })
-
-    const minTime = Math.min(...routesWithMetrics.map(r => r.durationMin))
-    const minFuel = Math.min(...routesWithMetrics.map(r => r.fuelVolume))
-
-    const timeTied = routesWithMetrics.filter(r => r.durationMin === minTime)
-    const fuelTied = routesWithMetrics.filter(r => r.fuelVolume === minFuel)
-
-    const fastestWinnerId = timeTied.reduce((best, r) =>
-      r.fuelVolume < best.fuelVolume ? r : best
-    , timeTied[0]!).id
-
-    const greenestWinnerId = fuelTied.reduce((best, r) =>
-      r.durationMin < best.durationMin ? r : best
-    , fuelTied[0]!).id
-
-    const isOptimal = fastestWinnerId === greenestWinnerId
-
-    const assignedExclusive = new Set<string>()
-    let alternativeCount = 0
-
-    return routesWithMetrics.map(r => {
-      const isTheFastest = r.id === fastestWinnerId
-      const isTheGreenest = r.id === greenestWinnerId
-
-      let titleKey = 'map.balanced'
-      let descKey = 'map.descBalanced'
-
-      if (isOptimal && isTheFastest) {
-        if (!assignedExclusive.has('optimal')) {
-          titleKey = 'map.optimal'
-          descKey = 'map.descOptimal'
-          assignedExclusive.add('optimal')
-        } else {
-          alternativeCount++
-        }
-      } else if (isTheFastest) {
-        if (!assignedExclusive.has('fastest')) {
-          titleKey = 'map.fastest'
-          descKey = 'map.descFastest'
-          assignedExclusive.add('fastest')
-        } else {
-          alternativeCount++
-        }
-      } else if (isTheGreenest) {
-        if (!assignedExclusive.has('eco')) {
-          titleKey = 'map.ecoFriendly'
-          descKey = 'map.descEco'
-          assignedExclusive.add('eco')
-        } else {
-          alternativeCount++
-        }
+      if (!ref.current) {
+        const m = L.marker([point.lat, point.lng], { icon: pinIcon(label), draggable: true, keyboard: false, autoPan: true }).addTo(map)
+        m.on('dragend', () => {
+          const ll = m.getLatLng()
+          void mapActionRef.current(which, ll.lat, ll.lng)
+        })
+        ref.current = m
       } else {
-        alternativeCount++
+        ref.current.setLatLng([point.lat, point.lng])
       }
+    }
+    sync(markerARef, origin, 'origin', 'A')
+    sync(markerBRef, destination, 'destination', 'B')
+  }, [origin, destination])
 
-      const baseTitle = t(titleKey as any)
-      const finalTitle = (titleKey === 'map.balanced' && alternativeCount > 1)
-        ? `${baseTitle} ${alternativeCount}`
-        : baseTitle
+  // fit view to points while no routes are drawn
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || views.length > 0) return
+    if (origin && destination) {
+      map.fitBounds(L.latLngBounds([origin.lat, origin.lng], [destination.lat, destination.lng]), { ...fitPadding(), maxZoom: 15, animate: true })
+    } else if (origin || destination) {
+      const p = (origin ?? destination)!
+      map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 14), { duration: 0.6 })
+    }
+  }, [origin, destination, views.length, fitPadding])
 
-      return {
-        ...r,
-        categoryTitle: finalTitle,
-        descriptor: t(descKey as any)
+  // draw routes
+  useEffect(() => {
+    const map = mapRef.current
+    const group = routeLayerRef.current
+    if (!map || !group) return
+    group.clearLayers()
+    routeLinesRef.current.clear()
+    if (liveRoutes.length === 0) return
+    const all: L.LatLngTuple[] = []
+    liveRoutes.forEach((r) => {
+      const pts = (r.polyline ?? []).map((p): L.LatLngTuple => [p.lat, p.lng])
+      pts.forEach((p) => all.push(p))
+      const casing = L.polyline(pts, { color: '#000', weight: 9, opacity: 0.3, lineJoin: 'round', lineCap: 'round', interactive: false })
+      const line = L.polyline(pts, { color: '#36FF97', weight: 5, opacity: 0.4, lineJoin: 'round', lineCap: 'round' })
+      line.on('click', (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e)
+        setSelectedRouteId(r.id)
+      })
+      group.addLayer(casing)
+      group.addLayer(line)
+      routeLinesRef.current.set(r.id, { casing, line })
+    })
+    if (all.length) map.fitBounds(L.latLngBounds(all), { ...fitPadding(), animate: true })
+  }, [liveRoutes, fitPadding])
+
+  // highlight the selected route
+  useEffect(() => {
+    routeLinesRef.current.forEach(({ casing, line }, id) => {
+      const on = id === effectiveSelectedId
+      line.setStyle({ color: on ? '#36FF97' : isDark ? '#7a9a8a' : '#64748b', weight: on ? 6 : 4, opacity: on ? 1 : 0.55 })
+      casing.setStyle({ weight: on ? 11 : 8, opacity: on ? 0.4 : 0.2 })
+      if (on) {
+        casing.bringToFront()
+        line.bringToFront()
       }
     })
-  }, [liveRoutes, vehicle, t])
+  }, [effectiveSelectedId, liveRoutes, isDark])
 
-  const handleAnalyzeRoute = async (route: any) => {
+  const fitAll = () => {
+    const map = mapRef.current
+    if (!map) return
+    const pts: L.LatLngTuple[] = []
+    const selectedPolyline = selectedRoute?.polyline
+    if (selectedPolyline?.length) selectedPolyline.forEach((p) => pts.push([p.lat, p.lng]))
+    else {
+      if (origin) pts.push([origin.lat, origin.lng])
+      if (destination) pts.push([destination.lat, destination.lng])
+    }
+    if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { ...fitPadding(), animate: true })
+    else map.setView(pts[0] ?? MAP_DEFAULT_CENTER, pts[0] ? 14 : 12, { animate: true })
+  }
+
+  /* ── AI briefing ── */
+  const handleAnalyzeRoute = async (view: RouteView) => {
     if (analysisLoadingId) return
     analysisAbortRef.current?.abort()
     const ctrl = new AbortController()
     analysisAbortRef.current = ctrl
 
-    setAnalysisLoadingId(route.id)
+    const { route, stats } = view
     setIsCopilotOpen(true)
+    if (!AI_CONFIGURED) {
+      setBriefing(localBriefing(view, views, vehicle, isArabic))
+      return
+    }
+    setAnalysisLoadingId(route.id)
 
     const distKm = Math.max(route.distanceKm || 0, 0.1)
-    const ascentM = route.ascentM ?? 60
-    const stats = computeTripEmissions(distKm, ascentM, 0.85, vehicle)
-    const waste = calculateTrafficWaste(route.durationMin || 0, route.staticDurationMin ?? route.durationMin ?? 0, vehicle)
+    const ascentM = route.ascentM ?? 0
+    const ascentKnown = route.ascentStatus === 'measured'
     const yearly = projectYearlyImpact(stats.costJOD || 0, stats.co2Kg || 0)
-
     const fuelDisplay = stats.fuelLiters != null ? `${stats.fuelLiters.toFixed(2)} L` : stats.label
-    const costDisplay = stats.costJODStr || '0.00'
-    const co2Display = (stats.co2Kg || 0).toFixed(2)
 
-    const payload = `Analyze this ${route.categoryTitle ?? 'route'}:
+    const payload = `Analyze this ${view.title} route:
 - Distance: ${distKm.toFixed(1)} km
-- Time: ${route.durationMin ?? 0} min
+- Time: ${route.durationMin ?? 0} min (no live traffic data)
 - Energy/Fuel: ${fuelDisplay}
-- Cost: ${costDisplay} JOD
-- CO2: ${co2Display} kg
-- Ascent: ${ascentM} m
+- Cost: ${stats.costJODStr} JOD
+- CO2: ${stats.co2Kg.toFixed(2)} kg
+- Ascent: ${ascentKnown ? `${ascentM} m (measured from elevation samples)` : 'UNKNOWN — elevation data was unavailable, so the energy/fuel/CO2/cost above assume flat terrain. State this limitation briefly and do not discuss hills.'}
 
-TACTICAL SUSTAINABILITY METRICS (Yearly/Traffic):
-- Yearly Projection: If taken daily, this trip costs ${yearly.jod} JOD/year and emits ${yearly.co2} kg CO2.
-- Bio-Equivalent: Equal to the absorption capacity of ${yearly.trees} mature trees per year.
-${waste ? `- Traffic Waste: You are losing ${waste.jodStr} JOD specifically to idling and congestion on this corridor.` : '- Flow: This route has minimal traffic delay penalty.'}
+Yearly projection if driven daily (250 days): ${yearly.jod} JOD and ${yearly.co2} kg CO2 per year, equal to the absorption of about ${yearly.trees} mature trees.
 
-Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for this Jordan trip. Use only the provided numbers. Mention Amman terrain if ascent > 100m.`
+Provide a 2-3 sentence, high-accuracy briefing of its pros/cons for this Jordan trip. Use only the provided numbers. Mention Amman terrain if ascent > 100m.`
 
     const metrics: CopilotRouteMetrics = {
       fuelSavedLiters: (stats.fuelLiters ?? parseFloat(stats.label)) || 0,
@@ -392,556 +621,222 @@ Provide a 2-3 sentence, high-accuracy tactical briefing of its pros/cons for thi
       const reply = await sendGeminiMessage(payload, {
         firstName: profile?.firstName,
         vehicleType: vehicle,
-        locale: locale as any,
+        locale,
         destination: destination?.display,
         hasActiveRoute: true,
-        activeRouteData: {
-          type: route.categoryTitle ?? 'Route',
-          distance: `${distKm.toFixed(1)} km`,
-          duration: `${route.durationMin ?? 0} min`
-        },
-        copilotRouteMetrics: metrics
+        activeRouteData: { type: view.title, distance: `${distKm.toFixed(1)} km`, duration: `${route.durationMin ?? 0} min` },
+        copilotRouteMetrics: metrics,
       })
       if (ctrl.signal.aborted) return
       setBriefing(reply)
       setAnalysisMetrics(metrics)
     } catch {
+      /* the briefing is optional; the rest of the page keeps working */
     } finally {
       if (!ctrl.signal.aborted) setAnalysisLoadingId(null)
     }
   }
 
-  const hasRealResults = analyzeTriggered && liveRoutes.length > 0
-  const selectedRoute =
-    liveRoutes.find((r) => r.id === selectedRouteId) ??
-    liveRoutes.find((r) => r.id === 'eco') ??
-    liveRoutes[0] ??
-    null
-
-
-  const previewStats = useMemo(() => {
-    if (!origin || !destination) return null
-    const kmPerDegLat = 111
-    const avgLat = ((origin.lat + destination.lat) / 2) * (Math.PI / 180)
-    const kmPerDegLng = 111 * Math.cos(avgLat)
-    const dLat = Math.abs(origin.lat - destination.lat) * kmPerDegLat
-    const dLng = Math.abs(origin.lng - destination.lng) * kmPerDegLng
-    const straightKm = Math.sqrt(dLat ** 2 + dLng ** 2)
-    return {
-      distanceKm: Math.max(0.2, Math.round(straightKm * 1.24 * 10) / 10),
-      durationMin: Math.max(3, Math.round((straightKm * 1.24 / 38) * 60)),
-    }
-  }, [origin, destination])
-
-
-  const reverseGeocode = useCallback(async (latLng: google.maps.LatLng): Promise<string> => {
-    if (!geocoderRef.current) return `${latLng.lat().toFixed(5)}, ${latLng.lng().toFixed(5)}`
-    return new Promise((resolve) => {
-      geocoderRef.current!.geocode({ location: latLng }, (results, status) => {
-        if (status === 'OK' && results?.[0]) resolve(results[0].formatted_address.split(',').slice(0, 2).join(',').trim())
-        else resolve(`${latLng.lat().toFixed(5)}, ${latLng.lng().toFixed(5)}`)
-      })
-    })
-  }, [])
-
-
-
-  const neonMarkerSvg = useCallback((label: 'A' | 'B', accent: string) => {
-    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='42' height='54' viewBox='0 0 42 54'>
-      <defs>
-        <filter id='g' x='-50%' y='-50%' width='200%' height='200%'>
-          <feGaussianBlur stdDeviation='2.3' result='b'/>
-          <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
-        </filter>
-      </defs>
-      <path d='M21 2C11.6 2 4 9.6 4 19c0 13.1 15.2 30.4 16 31.1a1.4 1.4 0 0 0 2 0C22.8 49.4 38 32.1 38 19 38 9.6 30.4 2 21 2Z' fill='${accent}' filter='url(#g)'/>
-      <circle cx='21' cy='19' r='7.6' fill='#050706' stroke='rgba(255,255,255,0.22)'/>
-      <text x='21' y='22.5' text-anchor='middle' font-size='10' font-family='Inter,Arial' font-weight='700' fill='${accent}'>${label}</text>
-    </svg>`
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
-  }, [])
-
-  const placeMarker = useCallback((which: 'origin' | 'destination', pos: google.maps.LatLng) => {
-    if (!mapRef.current) return
-    const ref = which === 'origin' ? markerARef : markerBRef
-    const color = which === 'origin' ? '#36FF97' : '#FFFFFF'
-    if (ref.current) {
-      ref.current.position = pos
-      return
-    }
-    ref.current = new google.maps.marker.AdvancedMarkerElement({
-      map: mapRef.current,
-      position: pos,
-      content: (() => {
-        const div = document.createElement('div')
-        // AdvancedMarkerElement anchors to bottom-center by default.
-        // We ensure the image has no bottom gap by using display: block.
-        div.innerHTML = `<img src="${neonMarkerSvg(which === 'origin' ? 'A' : 'B', color)}" style="width:38px; height:48px; display: block;" />`
-        return div
-      })(),
-    })
-    // Bounce effect for AdvancedMarkerElement
-    const el = ref.current.element as HTMLElement
-    el.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-    el.style.transform = 'translateY(-20px)'
-    window.setTimeout(() => { el.style.transform = 'translateY(0)' }, 50)
-  }, [neonMarkerSvg])
-
-  const clearAllPolys = useCallback(() => {
-    routePolysRef.current.forEach((p) => p.setMap(null))
-    routePolysRef.current = []
-    ghostPolyRef.current?.setMap(null)
-    ghostPolyRef.current = null
-  }, [])
-
-  useEffect(() => {
-    if (!apiKey || !mapEl.current) return
-    let cancelled = false
-    let clickListener: google.maps.MapsEventListener | null = null
-    ;(async () => {
-      try {
-        const { importLibrary, setOptions } = await import('@googlemaps/js-api-loader')
-        if (!(window as any).__gdMapsConfigured) {
-          try {
-            setOptions({ key: apiKey, v: 'weekly' })
-            ;(window as any).__gdMapsConfigured = true
-          } catch (e) {
-            console.warn('Maps config error:', e)
-          }
-        }
-        const [{ Map }] = await Promise.all([
-          importLibrary('maps') as Promise<google.maps.MapsLibrary>,
-          importLibrary('places').catch(() => null),
-          importLibrary('marker').catch(() => null),
-          importLibrary('routes').catch(() => null),
-        ])
-        if (cancelled || !mapEl.current) return
-        const map = new Map(mapEl.current, {
-          ...mapOptions,
-        })
-        mapRef.current = map
-        geocoderRef.current = new google.maps.Geocoder()
-        const clickModeRef = { current: 'origin' as 'origin' | 'destination' }
-        ;(window as unknown as Record<string, unknown>)['__gdClickModeRef'] = clickModeRef
-        clickListener = map.addListener('click', async (e: google.maps.MapMouseEvent) => {
-          if (!e.latLng) return
-          // High-precision coordinate capture for Jordanian constants matching
-          const lat = e.latLng.lat()
-          const lng = e.latLng.lng()
-          const exactLatLng = new google.maps.LatLng(lat, lng)
-          
-          const mode = clickModeRef.current
-          placeMarker(mode, exactLatLng)
-          const display = await reverseGeocode(exactLatLng)
-          const point = { display, lat, lng }
-          
-          if (mode === 'origin') {
-            setOrigin(point)
-            clickModeRef.current = 'destination'
-            setClickMode('destination')
-          } else {
-            setDestination(point)
-          }
-          setAnalyzeTriggered(false)
-          setSelectedRouteId(null)
-          clearAllPolys()
-        })
-        setMapReady(true)
-      } catch (e) {
-        console.warn(e)
-        setMapError('TACTICAL ALERT: map system offline. Check Google Maps credentials.')
-      }
-    })()
-    const markerAAtMount = markerARef.current
-    const markerBAtMount = markerBRef.current
-    return () => {
-      cancelled = true
-      if (clickListener) google.maps.event.removeListener(clickListener)
-      if (markerAAtMount) markerAAtMount.map = null
-      if (markerBAtMount) markerBAtMount.map = null
-      mapRef.current = null
-      clearAllPolys()
-    }
-  }, [apiKey, placeMarker, reverseGeocode, clearAllPolys, mapOptions])
-
-  useEffect(() => {
-    const ref = (window as unknown as Record<string, unknown>)['__gdClickModeRef'] as { current: 'origin' | 'destination' } | undefined
-    if (ref) ref.current = clickMode
-  }, [clickMode])
-  
-  // ⚡ DYNAMIC THEME SYNC: Update map styles when isDark changes without re-init
-  useEffect(() => {
-    if (mapRef.current && mapOptions) {
-      mapRef.current.setOptions(mapOptions)
-    }
-  }, [isDark, mapOptions])
-
-  useEffect(() => {
-    if (origin) saveRecentLocation({ display: origin.display, lat: origin.lat, lng: origin.lng, savedAt: Date.now() })
-    if (mapReady && origin) {
-      const pos = new google.maps.LatLng(origin.lat, origin.lng)
-      placeMarker('origin', pos)
-      // Pan to single point if destination isn't set yet
-      if (!destination && mapRef.current) {
-        mapRef.current.panTo(pos)
-        mapRef.current.setZoom(15)
-      }
-    }
-  }, [origin, mapReady, placeMarker, destination])
-
-  useEffect(() => {
-    if (destination) saveRecentLocation({ display: destination.display, lat: destination.lat, lng: destination.lng, savedAt: Date.now() })
-    if (mapReady && destination) {
-      const pos = new google.maps.LatLng(destination.lat, destination.lng)
-      placeMarker('destination', pos)
-      // Pan to single point if origin isn't set yet
-      if (!origin && mapRef.current) {
-        mapRef.current.panTo(pos)
-        mapRef.current.setZoom(15)
-      }
-    }
-  }, [destination, mapReady, placeMarker, origin])
-
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return
-    if (!origin || !destination || hasRealResults) {
-      ghostPolyRef.current?.setMap(null)
-      ghostPolyRef.current = null
-      return
-    }
-    const path = [{ lat: origin.lat, lng: origin.lng }, { lat: destination.lat, lng: destination.lng }]
-    if (!ghostPolyRef.current) {
-      ghostPolyRef.current = new google.maps.Polyline({
-        map: mapRef.current,
-        path,
-        geodesic: true,
-        strokeColor: '#36FF97',
-        strokeOpacity: 0.35,
-        strokeWeight: 2,
-        icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '14px' }],
-      })
-    } else {
-      ghostPolyRef.current.setPath(path)
-    }
-  }, [origin, destination, mapReady, hasRealResults])
-
-  // Tactical UX: Auto-fit map to show both Points A and B
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !origin || !destination || hasRealResults) return
-    const bounds = new google.maps.LatLngBounds()
-    bounds.extend({ lat: origin.lat, lng: origin.lng })
-    bounds.extend({ lat: destination.lat, lng: destination.lng })
-    mapRef.current.fitBounds(bounds, { top: 80, right: 80, bottom: 80, left: 80 })
-  }, [origin, destination, mapReady, hasRealResults])
-
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return
-    routePolysRef.current.forEach((p) => p.setMap(null))
-    routePolysRef.current = []
-    if (!hasRealResults) return
-    routePolysRef.current = liveRoutes.map((r, i) => {
-      const poly = new google.maps.Polyline({
-        map: mapRef.current!,
-        path: r.polyline ?? [],
-        geodesic: true,
-        strokeColor: ROUTE_COLORS[i] ?? '#36FF97',
-        strokeOpacity: 0.45,
-        strokeWeight: 4,
-      })
-      return poly
-    })
-    const bounds = new google.maps.LatLngBounds()
-    liveRoutes.forEach((r) => r.polyline?.forEach((p) => bounds.extend(p)))
-    if (!bounds.isEmpty()) mapRef.current.fitBounds(bounds, 72)
-  }, [hasRealResults, liveRoutes, mapReady])
-
-  useEffect(() => {
-    if (!mapReady || routePolysRef.current.length === 0 || !hasRealResults) return
-    liveRoutes.forEach((r, i) => {
-      const poly = routePolysRef.current[i]
-      if (!poly) return
-      poly.setOptions({
-        strokeOpacity: selectedRoute?.id === r.id ? 1 : 0.34,
-        strokeWeight: selectedRoute?.id === r.id ? 5 : 3,
-      })
-    })
-  }, [hasRealResults, liveRoutes, mapReady, selectedRoute?.id])
-
-
-  const runAnalyze = useCallback(() => {
-    if (!origin || !destination) return
-    setAnalyzeTriggered(true)
-    setActiveTab('results')
-    directions.fetchRoutes()
-  }, [origin, destination, directions])
-
-  useEffect(() => {
-    analyzeRef.current = runAnalyze
-  }, [runAnalyze])
-
-  const handleAnalyze = useCallback(() => {
-    runAnalyze()
-  }, [runAnalyze])
-
-
-  const handleLocateMe = useCallback(async () => {
-    setMyLocationBusy(true)
-    try {
-      const pos = await getCurrentPosition()
-      const latLng = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude)
-      placeMarker('origin', latLng)
-      const display = await reverseGeocode(latLng)
-      setOrigin({ display, lat: latLng.lat(), lng: latLng.lng() })
-      mapRef.current?.panTo(latLng)
-      mapRef.current?.setZoom(Math.max(mapRef.current?.getZoom() ?? 12, 13))
-      setClickMode('destination')
-    } finally {
-      setMyLocationBusy(false)
-    }
-  }, [placeMarker, reverseGeocode])
-
-  const showGoogle = Boolean(apiKey) && !mapError
-  const tacticalAlert =
-    analyzeTriggered && (directions.status === 'fallback' || directions.status === 'error')
-      ? (directions as any).message || 'TACTICAL ALERT: No route found for this pair. Adjust A/B points and retry.'
+  /* ── render ── */
+  const hint = !origin
+    ? isArabic ? 'انقر على الخريطة لتحديد نقطة الانطلاق (A)' : 'Click the map to set your start (A)'
+    : !destination
+      ? isArabic ? 'انقر على الخريطة لتحديد الوجهة (B)' : 'Click the map to set your destination (B)'
       : null
 
-  const panelBg = isDark ? 'bg-black/60 text-white border-white/12' : 'bg-white/72 text-zinc-900 border-black/10'
-  const panelInner = isDark ? 'bg-white/[0.04] border-white/12' : 'bg-white/80 border-black/10'
-  const chipMuted = isDark ? 'text-white/65' : 'text-zinc-600'
-  const chipActive = isDark ? 'bg-[rgba(54,255,151,0.12)] text-toxic' : 'bg-[rgba(54,255,151,0.16)] text-emerald-700'
-  const plannerAnchor = 'start-4'
-  const controlsAnchor = 'end-4'
-  const dirAttr: 'rtl' | 'ltr' = isArabic ? 'rtl' : 'ltr'
-
   return (
-    <div dir={dirAttr} className={`relative h-svh w-full overflow-hidden ${isDark ? 'bg-onyx text-white' : 'bg-[#F5F8FB] text-zinc-900'}`}>
-      <div className="absolute inset-0">
-        {showGoogle ? (
-          <div ref={mapEl} className="h-full w-full bg-black" />
-        ) : (
-          <div className={`flex h-full w-full items-center justify-center text-sm ${isDark ? 'bg-[#070807] text-white/60' : 'bg-[#F3F5F7] text-zinc-600'}`}>
-            {mapError || 'Google Maps API key is required.'}
-          </div>
-        )}
-      </div>
+    <div dir={isArabic ? 'rtl' : 'ltr'} className="relative h-svh w-full overflow-hidden bg-[#eef2f1] text-zinc-900 dark:bg-onyx dark:text-white">
+      <div ref={mapEl} className="gd-map absolute inset-0 z-0" />
 
-      <header className="absolute inset-x-0 top-0 z-40 p-4">
-        <div className={`mx-auto grid max-w-[1200px] grid-cols-3 items-center rounded-2xl border px-4 py-2.5 backdrop-blur-[20px] ${panelBg}`}>
-          <div className="justify-self-start">
-            <Link
-              to="/"
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:border-toxic/45 hover:text-toxic ${isDark ? 'border-white/15 bg-white/[0.04] text-white/80' : 'border-black/12 bg-white/75 text-zinc-700'}`}
-            >
-              {isArabic ? '← عودة' : '← Back'}
-            </Link>
-          </div>
-
-          <div className="justify-self-center">
-            <BrandLogo />
-          </div>
-
-          <div className="justify-self-end">
-            <span className={`hidden text-[10px] uppercase tracking-widest font-bold sm:block ${isDark ? 'text-white/35' : 'text-zinc-500'}`}>
-              {t('map.secure')}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <div className="absolute inset-x-4 top-[84px] z-30 mx-auto max-w-[1200px]">
-        <div className={`inline-flex rounded-2xl border p-1 backdrop-blur-[20px] ${panelBg}`}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('planner')}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${activeTab === 'planner' ? chipActive : chipMuted}`}
+      {/* Left panel (bottom sheet on small screens) */}
+      <aside
+        ref={panelRef}
+        className="absolute inset-x-3 bottom-3 z-[1000] flex max-h-[58svh] flex-col rounded-3xl border border-black/10 bg-white/95 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)] backdrop-blur-xl dark:border-white/12 dark:bg-[#0a0f0d]/95 lg:inset-x-auto lg:bottom-auto lg:top-4 lg:max-h-[calc(100svh-2rem)] lg:w-[25.5rem] lg:start-4"
+      >
+        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
+          <Link
+            to="/"
+            aria-label={isArabic ? 'العودة إلى الصفحة الرئيسية' : 'Back to home'}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/10 text-zinc-700 transition hover:border-toxic/60 hover:text-toxic dark:border-white/12 dark:text-white/80"
           >
-            {t('map.planner')}
-          </button>
-          {hasRealResults && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('results')}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${activeTab === 'results' ? chipActive : chipMuted}`}
-            >
-              {t('map.results')}
-            </button>
+            {Icon.back}
+          </Link>
+          <BrandLogo wordmarkClassName="text-base" />
+          <span className="w-9" aria-hidden />
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 pb-4">
+          <div>
+            <h1 className="font-heading text-lg font-extrabold text-zinc-950 dark:text-white">
+              {isArabic ? 'خطط رحلتك' : 'Plan your trip'}
+            </h1>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-white/45">
+              {isArabic ? 'قارن المسارات حسب الوقت والوقود والتكلفة والانبعاثات.' : 'Compare routes by time, fuel, cost and CO₂.'}
+            </p>
+          </div>
+
+          <SmartLocationInput
+            origin={origin}
+            destination={destination}
+            onOriginChange={(p) => setPoint('origin', p)}
+            onDestinationChange={(p) => setPoint('destination', p)}
+            favorites={user ? savedLocations : []}
+            onSaveLocation={
+              user
+                ? (p) => void saveLocation({ label: p.display.split(',')[0] ?? p.display, address: p.display, lat: p.lat, lng: p.lng })
+                : undefined
+            }
+            labels={{
+              from: isArabic ? 'من' : 'From',
+              to: isArabic ? 'إلى' : 'To',
+              fromPlaceholder: isArabic ? 'ابحث أو انقر على الخريطة' : 'Search or click the map',
+              toPlaceholder: isArabic ? 'إلى أين؟' : 'Where to?',
+            }}
+          />
+
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold text-zinc-600 dark:text-white/55">{t('vehicle.title')}</p>
+            <div className="grid grid-cols-4 gap-1 rounded-xl border border-black/10 bg-black/[0.04] p-1 dark:border-white/10 dark:bg-white/[0.04]">
+              {VEHICLES.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={vehicle === v}
+                  onClick={() => setVehicle(v)}
+                  className={`rounded-lg px-1 py-2 text-[11px] font-semibold transition ${
+                    vehicle === v
+                      ? 'bg-toxic text-onyx shadow-[0_6px_16px_-8px_rgba(54,255,151,0.9)]'
+                      : 'text-zinc-600 hover:text-zinc-900 dark:text-white/60 dark:hover:text-white'
+                  }`}
+                >
+                  {t(`vehicle.${v}` as 'vehicle.petrol')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!hasBoth && (
+            <ol className="space-y-2.5 rounded-2xl border border-dashed border-toxic/35 bg-toxic/[0.05] p-3.5">
+              {(isArabic
+                ? ['حدّد نقطة الانطلاق (A) بالبحث أو بالنقر على الخريطة', 'حدّد الوجهة (B)', 'قارن المسارات حسب الوقت والوقود والتكلفة والانبعاثات']
+                : ['Set your start (A) by searching or clicking the map', 'Set your destination (B)', 'Compare routes by time, fuel, cost and CO₂']
+              ).map((step, i) => (
+                <li key={step} className="flex items-start gap-3 text-xs text-zinc-700 dark:text-white/70">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toxic/20 text-[11px] font-extrabold text-emerald-700 dark:text-toxic">{i + 1}</span>
+                  <span className="pt-0.5 leading-relaxed">{step}</span>
+                </li>
+              ))}
+            </ol>
           )}
-        </div>
-      </div>
 
-      <AnimatePresence>
-        {activeTab === 'planner' && (
-          <motion.section
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            className={`absolute ${plannerAnchor} top-[132px] z-30 w-[min(448px,calc(100vw-2rem))] rounded-2xl border p-3 backdrop-blur-[20px] ${panelBg}`}
-          >
-            <div className="planner-stack relative">
-              <div className={`pointer-events-none absolute top-[56px] h-[90px] w-px border-s border-dashed border-toxic/55 start-[18px]`} />
-              <SmartLocationInput
-                origin={origin}
-                destination={destination}
-                onOriginChange={(p) => {
-                  setOrigin(p)
-                  setAnalyzeTriggered(false)
-                  setSelectedRouteId(null)
-                  clearAllPolys()
-                }}
-                onDestinationChange={(p) => {
-                  setDestination(p)
-                  setAnalyzeTriggered(false)
-                  setSelectedRouteId(null)
-                  clearAllPolys()
-                }}
-                favorites={savedLocations}
-                onSaveLocation={(p) => saveLocation({ label: p.display.split(',')[0], address: p.display, lat: p.lat, lng: p.lng })}
-                labels={{
-                  from: `${origin ? '● ' : ''}${t('map.from') || 'From'}`,
-                  to: `${destination ? '● ' : ''}${t('map.to') || 'To'}`,
-                  fromPlaceholder: t('map.setStart'),
-                  toPlaceholder: t('map.setDest'),
-                }}
-                apiReady={mapReady}
-              />
+          {/* results */}
+          {directions.status === 'loading' && (
+            <div>
+              <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-toxic">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-toxic" />
+                {isArabic ? 'جاري حساب المسارات…' : 'Calculating routes…'}
+              </p>
+              <RouteSkeleton />
             </div>
+          )}
 
-            <div className="mt-4">
-              <CalculateButton 
-                onClick={handleAnalyze} 
-                disabled={!origin || !destination} 
-                loading={directions.status === 'loading'} 
-                isDark={isDark}
-              />
-            </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
-      <style>{`
-        .planner-stack .sm\\:flex-row { flex-direction: column !important; align-items: stretch !important; gap: 0.5rem !important; }
-        .planner-stack .sm\\:mt-6 { margin-top: 0 !important; }
-      `}</style>
-
-      {!hasRealResults && (
-        <div className={`absolute ${controlsAnchor} top-[132px] z-30 rounded-2xl border p-2 backdrop-blur-[20px] ${panelBg}`}>
-          <div className={`flex items-center gap-1 rounded-xl border p-1 ${panelInner}`}>
-            {(['origin', 'destination'] as const).map((mode) => (
-              <motion.button
-                key={mode}
+          {directions.status === 'error' && (
+            <div role="alert" className="rounded-2xl border border-amber-400/40 bg-amber-400/10 p-3.5 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+              <p className="font-bold">
+                {directions.message === 'NO_ROUTE'
+                  ? isArabic ? 'لا يوجد مسار بين النقطتين' : 'No road route between these points'
+                  : isArabic ? 'تعذّر حساب المسارات الآن' : 'Could not calculate routes right now'}
+              </p>
+              <p className="mt-1">
+                {directions.message === 'NO_ROUTE'
+                  ? isArabic ? 'جرّب تحريك الدبوس إلى طريق قريب.' : 'Try moving a pin onto a nearby road.'
+                  : isArabic ? 'تحقق من الاتصال بالإنترنت ثم أعد المحاولة.' : 'Check your connection and try again.'}
+              </p>
+              <button
                 type="button"
-                onClick={() => setClickMode(mode)}
-                whileTap={{ scale: 0.94 }}
-                whileHover={{ scale: 1.03 }}
-                className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                  clickMode === mode
-                    ? chipActive
-                    : chipMuted
-                }`}
+                onClick={fetchRoutes}
+                className="mt-2.5 rounded-lg border border-amber-500/50 px-3 py-1.5 font-bold transition hover:bg-amber-400/20"
               >
-                <span className="me-1 inline-flex align-middle"><MapPin size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
-                {mode === 'origin' ? 'A' : 'B'}
-              </motion.button>
-            ))}
-            <motion.button
-              type="button"
-              onClick={handleLocateMe}
-              disabled={myLocationBusy}
-              whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.03 }}
-              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${isDark ? 'border-toxic/35 bg-[rgba(54,255,151,0.08)] text-toxic' : 'border-toxic/45 bg-[rgba(54,255,151,0.12)] text-emerald-700'}`}
-            >
-              <span className="me-1 inline-flex align-middle"><Crosshair size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
-              {myLocationBusy ? t('map.locating') : t('map.myLocation')}
-            </motion.button>
-          </div>
-        </div>
-      )}
+                {isArabic ? 'إعادة المحاولة' : 'Try again'}
+              </button>
+            </div>
+          )}
 
-
-      {/* Redundant local AI FAB removed to resolve ghosting effect — global GeminiCopilot handles chat */}
-
-
-      {previewStats && !hasRealResults && (
-        <div className={`absolute bottom-6 inset-x-0 mx-auto z-30 w-fit rounded-2xl border px-4 py-2 text-xs font-bold backdrop-blur-[20px] ${panelBg}`}>
-          {t('map.livePreview')} · <span dir="ltr" className="text-emerald-700">~{previewStats.distanceKm.toFixed(1)} {t('map.dist')}</span> · <span dir="ltr" className="text-emerald-700">{previewStats.durationMin} {t('map.time')}</span>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {activeTab === 'results' && hasRealResults && (
-          <motion.section
-            initial={{ opacity: 0, y: 32 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 32 }}
-            className={`absolute bottom-6 inset-x-4 z-30 mx-auto w-full transition-all duration-500 ${isCopilotOpen ? 'max-w-[calc(100%-460px)] me-auto ms-4 sm:ms-6' : 'max-w-[1000px]'}`}
-          >
-            <div className={`grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-2xl border p-3 backdrop-blur-[24px] shadow-2xl ${panelBg}`}>
-              {categorizedRoutes.map((r, i) => (
+          {views.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-zinc-600 dark:text-white/55">
+                {isArabic ? `${views.length} ${views.length === 1 ? 'مسار' : 'مسارات'}` : `${views.length} ${views.length === 1 ? 'route' : 'routes'} found`}
+              </p>
+              {views.map((v) => (
                 <RouteCard
-                  key={r.id + i}
-                  route={r}
-                  selected={selectedRouteId === r.id}
-                  onSelect={() => setSelectedRouteId(r.id)}
-                  onAnalyze={() => handleAnalyzeRoute(r)}
-                  analyzing={analysisLoadingId === r.id}
-                  color={ROUTE_COLORS[i] ?? '#36FF97'}
-                  isDark={isDark}
+                  key={v.route.id}
+                  view={v}
+                  selected={v.route.id === effectiveSelectedId}
+                  analyzing={analysisLoadingId === v.route.id}
+                  isArabic={isArabic}
+                  vehicle={vehicle}
+                  onSelect={() => setSelectedRouteId(v.route.id)}
+                  onAnalyze={() => void handleAnalyzeRoute(v)}
                 />
               ))}
-              {categorizedRoutes.length === 1 && <PlaceholderCard slotLabel={t('map.fastest')} />}
-              {categorizedRoutes.length === 2 && <PlaceholderCard slotLabel={t('map.alternative')} />}
-              <div className="sm:col-span-3 mt-1 pt-2 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={handleAnalyze}
-                  className={`flex w-full items-center justify-center gap-2 rounded-xl border border-toxic/30 bg-toxic/5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-toxic transition hover:bg-toxic/10 shadow-[0_0_15px_-5px_rgba(54,255,151,0.2)]`}
-                >
-                  <Radar size={14} />
-                  {t('map.analyze')}
-                </button>
-              </div>
+              {selectedView && (
+                <div className="rounded-2xl border border-toxic/25 bg-toxic/[0.06] p-3.5">
+                  <p className="text-[11px] font-bold text-emerald-700 dark:text-toxic">
+                    {isArabic ? 'لو كررت هذه الرحلة يومياً (250 يوم عمل)' : 'If you drive this trip daily (250 working days)'}
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-zinc-900 dark:text-white" dir="ltr">
+                    {yearly.jod} JOD · {yearly.co2} kg CO₂
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-white/45">
+                    {isArabic ? `يعادل امتصاص نحو ${yearly.trees} شجرة ناضجة سنوياً` : `Equal to what about ${yearly.trees} mature trees absorb per year`}
+                  </p>
+                </div>
+              )}
+              <p className="text-[10px] leading-relaxed text-zinc-400 dark:text-white/30">
+                {isArabic
+                  ? 'تقديرات تعتمد على المسافة والارتفاع ونوع المركبة، بدون بيانات ازدحام مباشرة. الخرائط: OpenStreetMap · الارتفاع: Open-Meteo.'
+                  : 'Estimates from distance, elevation and vehicle type — no live traffic. Maps: OpenStreetMap · Elevation: Open-Meteo.'}
+              </p>
             </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
+          )}
+        </div>
+      </aside>
 
-      <GeminiCopilot 
-        isOpen={isCopilotOpen} 
+      {/* Map controls */}
+      <div className="absolute end-4 top-4 z-[1000] flex flex-col gap-2">
+        <MapButton label={isArabic ? 'تكبير' : 'Zoom in'} onClick={() => mapRef.current?.zoomIn()}>{Icon.plus}</MapButton>
+        <MapButton label={isArabic ? 'تصغير' : 'Zoom out'} onClick={() => mapRef.current?.zoomOut()}>{Icon.minus}</MapButton>
+        <MapButton label={isArabic ? 'عرض المسار كاملاً' : 'Fit to route'} onClick={fitAll}>{Icon.fit}</MapButton>
+      </div>
+
+      {hint && (
+        <div className="pointer-events-none absolute inset-x-0 top-4 z-[1000] flex justify-center px-16 lg:px-0">
+          <p className="rounded-full border border-black/10 bg-white/90 px-4 py-2 text-center text-xs font-semibold text-zinc-800 shadow-lg backdrop-blur-md dark:border-white/12 dark:bg-zinc-900/85 dark:text-white">
+            {hint}
+          </p>
+        </div>
+      )}
+
+      <GeminiCopilot
+        isOpen={isCopilotOpen}
         onOpenChange={setIsCopilotOpen}
         selectedRoute={selectedRoute}
         destination={destination?.display}
         hasActiveRoute={!!selectedRoute}
-        activeRouteData={selectedRoute ? {
-          type: selectedRoute.id === 'fast' ? 'Fastest' : selectedRoute.id === 'eco' ? 'Eco-Friendly' : 'Balanced',
-          distance: `${selectedRoute.distanceKm.toFixed(1)} km`,
-          duration: `${selectedRoute.durationMin} min`
-        } : undefined}
+        activeRouteData={
+          selectedView
+            ? {
+                type: selectedView.title,
+                distance: `${selectedView.route.distanceKm.toFixed(1)} km`,
+                duration: `${selectedView.route.durationMin} min`,
+              }
+            : undefined
+        }
         isDark={isDark}
         briefing={briefing}
         metrics={analysisMetrics}
         currentCharge={localCharge}
       />
-
-      
-
-      {directions.status === 'loading' && (
-        <div className={`absolute bottom-6 ${controlsAnchor} z-40 rounded-2xl border border-toxic/35 px-3 py-1.5 text-xs font-semibold text-toxic backdrop-blur-[20px] ${isDark ? 'bg-black/60' : 'bg-white/82 text-emerald-700'}`}>
-          {t('routes.calculating')}
-        </div>
-      )}
-
-      {tacticalAlert && (
-        <div className={`absolute ${controlsAnchor} top-[196px] z-40 w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-amber-400/35 p-3 text-xs backdrop-blur-[20px] ${isDark ? 'bg-black/60 text-amber-200' : 'bg-white/85 text-amber-700'}`}>
-          <p className="mb-1 inline-flex items-center gap-1 font-semibold text-amber-300">
-            <span><Radar size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
-            {t('map.tacticalAlert')}
-          </p>
-          <p>{tacticalAlert}</p>
-        </div>
-      )}
-
     </div>
   )
 }
-

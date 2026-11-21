@@ -18,7 +18,7 @@ void main() {
 `
 
 const FRAG = `
-precision highp float;
+precision mediump float;
 varying vec2 vUv;
 uniform float uTime;
 uniform vec2 uResolution;
@@ -39,7 +39,7 @@ float noise(vec2 p) {
 float fbm(vec2 p) {
   float v = 0.0;
   float a = 0.5;
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 4; i++) {
     v += a * noise(p);
     p *= 2.0;
     a *= 0.5;
@@ -113,7 +113,11 @@ function LiquidScene({ themeDark }: { themeDark: boolean }) {
     }
   }, [material])
 
+  const lastDraw = useRef(0)
   useFrame((state) => {
+    // Slow ambient background: ~30fps looks identical and halves GPU load
+    if (state.clock.elapsedTime - lastDraw.current < 1 / 30) return
+    lastDraw.current = state.clock.elapsedTime
     const mat = meshRef.current?.material as THREE.ShaderMaterial | undefined
     if (!mat) return
     mat.uniforms.uTime.value = state.clock.elapsedTime
@@ -155,7 +159,7 @@ export function LiquidMeshBackground({ themeDark }: { themeDark: boolean }) {
         frameloop={tabVisible ? 'always' : 'never'}
         orthographic
         camera={{ position: [0, 0, 1], zoom: 1, near: -1, far: 2 }}
-        dpr={[1, Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 1.45)]}
+        dpr={0.5}
         gl={{
           antialias: false,
           alpha: false,
