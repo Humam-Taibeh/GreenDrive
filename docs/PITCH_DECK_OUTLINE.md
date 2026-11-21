@@ -1,6 +1,6 @@
 # GreenDrive — Pitch deck outline (Hackathon 2026)
 
-**Output by Antigravity IDE.** Use this structure in Google Slides or Canva.
+Use this structure in Google Slides or Canva.
 
 ## 1. Title
 
@@ -12,35 +12,35 @@
 
 - Transport emissions are opaque; drivers optimize for time, not carbon.
 - Hills, traffic, and detours change fuel burn in ways maps rarely explain.
-- No single place merges **live maps**, **terrain**, and **personal history**.
+- No single place merges **real routes**, **terrain**, and **cost / CO₂ per trip**.
 
 ## 3. Insight
 
-- **Eco / Fast / Cheap** are different objective functions; users deserve side-by-side clarity.
+- **Fastest vs. most efficient** are different objectives; users deserve side-by-side clarity.
 - Elevation-aware fuel modeling turns “shorter” into “wasteful” when grades spike.
 
 ## 4. Solution — GreenDrive
 
 - Organic liquid UI + glass-native surfaces (premium trust).
-- **Gemini** copilot greets by name and reads **Firestore** ledger (routes, CO₂).
-- **Google Maps** for real polylines; elevation via **server-side** Google APIs (CORS-safe).
-- **Google Identity** one-tap sign-in; preferences (theme, locale) sync to cloud.
+- Eco-Copilot briefs each route (Gemini / OpenRouter when a key is set; a local summary otherwise).
+- Real routes from **OSRM / OpenStreetMap**, climb measured with **Open-Meteo** elevation — all free, no API key.
+- Optional **Firebase** sign-in (Google or email); guests can use everything; preferences sync when signed in.
 
 ## 5. Demo flow (live)
 
-1. Landing: liquid mesh + parallax ripples.
-2. Sign in → personalized welcome in copilot.
-3. `/map`: three routes, terrain strip, fuel model.
+1. Landing page and the interactive **impact calculator**.
+2. `/map` as a guest: set A and B, compare up to three real routes (time, fuel, cost, CO₂, climb).
+3. **Ask AI** for a route briefing.
 4. Toggle **English / Arabic (RTL)** and **dark / light**.
 
 ## 6. Security & compliance posture
 
 - TLS, least-privilege Firestore rules, no secrets in client bundles beyond public Firebase config.
-- Output by Antigravity IDE — secure engineering pipeline.
+- Guest mode needs no account; account features are optional.
 
 ## 7. Traction / vision
 
-- Hackathon: working vertical slice; next: fleet pilots, OEM data feeds, carbon credits API.
+- Hackathon: working vertical slice. Next: live traffic data, real vehicle-consumption data, fleet pilots.
 
 ## 8. Team
 
@@ -49,5 +49,5 @@
 
 ## 9. Ask
 
-- Mentor feedback on Maps + Elevation billing topology.
+- Mentor feedback on self-hosting routing / elevation for production scale.
 - Introductions to sustainability programs / mobility partners.

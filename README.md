@@ -1,66 +1,128 @@
 [🏛️ Back to Main Profile](https://github.com/Humam-Taibeh)
 
-# 🌿 GreenDrive AI
+# 🌿 GreenDrive
 
-### 🔗 [Live Preview (design showcase)](https://greendrive-5574e.web.app)
+### 🔗 [Live demo → greendrive-5574e.web.app](https://greendrive-5574e.web.app)
 
-> **Status: prototype.** Interactive route analysis (map, elevation and the AI Eco-Coach) is under development. The public page is a design showcase: it contains no live map, no AI calls and no route, ascent, fuel or CO₂ results.
-
-> A route-optimization prototype that factors in Amman's hills — not just distance.
+> **A route-comparison tool that factors in Amman's hills — not just distance.**
 > Built for the Google Antigravity Hackathon, AI for Intelligent Transportation track.
 
-GreenDrive is a route-optimization tool built for Amman, Jordan's hilly terrain. The core idea: instead of ranking routes by distance alone, it computes the actual gravitational work (`mgh`) a route demands using live elevation data, and weighs that against a Jordanian fuel/EV tariff matrix — to show the real financial and environmental cost of a trip, in JOD and CO₂.
+GreenDrive compares real driving routes by **time, fuel, cost (JOD) and CO₂**. Instead of ranking routes by distance alone, it measures the **actual climb** along each route from elevation data, turns it into extra energy with the gravitational-work formula (`mgh`), and prices the result with Jordanian fuel and EV tariffs.
+
+It works **without any account and without any paid API key**: open the map as a guest, pick two points, and compare.
+
+<img src="docs/screenshots/02-map-routes.jpg" width="100%" alt="GreenDrive route planner: two real routes compared by time, fuel, cost and CO₂ on a dark map" />
 
 ---
 
-## 📸 App Preview & Interface
-<img src="https://github.com/user-attachments/assets/5ea033eb-25d6-4ce2-a3b1-58e1f1f53e1f" width="100%" alt="GreenDrive Interface Overview" />
-<br><br>
-<img src="https://github.com/user-attachments/assets/1c5ca618-16b1-421e-8933-216189574e48" width="100%" alt="GreenDrive Multi-Route Analytics" />
-<br><br>
-<img src="https://github.com/user-attachments/assets/bb41f91b-9fb6-42eb-831d-26efeac27b2d" width="100%" alt="GreenDrive AI Eco-Coach Briefing" />
-<br><br>
+## 📸 Screenshots
+
+| | |
+|---|---|
+| <img src="docs/screenshots/01-landing.jpg" alt="Landing page" /> **Landing page** | <img src="docs/screenshots/04-impact-calculator.jpg" alt="Impact calculator" /> **Impact calculator** — live yearly cost / CO₂ from your own inputs |
+| <img src="docs/screenshots/03-map-ai-briefing-light.jpg" alt="Light mode map with eco-copilot briefing" /> **Light mode + Eco-Copilot** briefing for the selected route | <img src="docs/screenshots/05-sign-in.jpg" alt="Sign-in page" /> **Sign in** — or continue as a guest |
+
+<p align="center">
+  <img src="docs/screenshots/06-map-mobile-arabic.jpg" width="320" alt="Mobile, Arabic (RTL) route planner" />
+  <br /><sub>Mobile layout, Arabic (RTL)</sub>
+</p>
 
 ---
 
-## 📽️ The Problem We Targeted
+## 📽️ The Problem
 
-Amman's steep hills and traffic bottlenecks mean standard, distance-based navigation often misses the real cost of a trip — elevation change can increase fuel consumption a lot more than a few extra kilometers would.
+Amman's steep hills mean distance-based navigation often misses the real cost of a trip: a shorter route with a big climb can burn more fuel than a slightly longer, flatter one.
 
-GreenDrive addresses this with three route options:
+For every trip GreenDrive requests up to three real alternatives and labels them from the numbers it computes:
 
-1. **Fastest Route** — standard time-optimized routing.
-2. **Eco-Route (AI-Optimized)** — weighs traffic, signal density, and elevation penalties to minimize fuel waste, even at a slightly longer distance.
-3. **Balanced Route** — a middle ground between speed and energy conservation.
+* **Best choice** — quickest *and* lowest consumption (when one route wins both).
+* **Fastest** / **Most efficient** — when speed and consumption disagree.
+* **Alternative N** — other available paths.
+
+Every route card shows time, distance, fuel (or kWh), cost in JOD, CO₂, and the measured climb. Switching vehicle type (petrol, diesel, hybrid, electric) recalculates instantly.
 
 ---
 
-## ✨ AI Eco-Coach
+## ✨ Features
 
-Using the **Gemini 1.5 API**, GreenDrive includes an on-demand "AI Eco-Coach" calibrated with Jordanian fuel and EV tariffs. It:
-
-* Estimates money saved (in JOD) based on your vehicle's consumption
-* Explains why a route is more efficient given Amman's terrain
-* Converts CO₂ savings into easier-to-picture terms
+* **Real routes, free** — OSRM routing on OpenStreetMap data, with place search and draggable A/B pins.
+* **Terrain-aware fuel model** — climb measured along each route (Open-Meteo elevation), converted with `mgh`, priced in JOD with Jordanian 2026 tariffs.
+* **Impact calculator** — interactive yearly cost / CO₂ / trees estimate. Every number is computed from your inputs, nothing is sample data.
+* **Eco-Copilot (optional AI)** — route briefings and eco-driving tips via Gemini / OpenRouter when you provide a key. **Without a key** it still gives a deterministic summary generated from the route numbers.
+* **Guest-first** — an account (Firebase: Google or email) is optional and only saves your vehicle, preferences and favourite places.
+* **English & Arabic (RTL)**, dark & light themes, responsive down to phones.
 
 ---
 
 ## 🛠️ How It's Built
 
 ### Frontend
-* **React 19 & Vite**
-* **Framer Motion** for UI animation
-* **Three.js / WebGL** for the animated background visuals
-* **RTL-first**: English and Arabic UI support via Tailwind logical properties
+* **React 19 + TypeScript + Vite**, **Tailwind CSS v4**
+* **Framer Motion** for UI animation, **Three.js / WebGL** for the ambient background
+* **RTL-first** layout (English and Arabic)
 
-### Mapping & Backend
-* **Leaflet + OpenStreetMap**, **OSRM** routing and **Open-Meteo** elevation (all free, no API key) for real routes and the `mgh` calculation
-* Per-vehicle consumption matrices for petrol, diesel, hybrid, and EV
-* **Firebase** for authentication and real-time data sync
+### Mapping & data (all free, no API key)
+| Need | Source |
+|---|---|
+| Map rendering | [Leaflet](https://leafletjs.com/) |
+| Basemap tiles | Esri Canvas (dark gray / light gray), © Esri, HERE, Garmin, © OpenStreetMap contributors |
+| Routing | [OSRM](https://project-osrm.org/) public router (OpenStreetMap data) |
+| Place search | [Photon](https://photon.komoot.io/) · reverse geocoding via [Nominatim](https://nominatim.org/) |
+| Elevation | [Open-Meteo](https://open-meteo.com/) Elevation API (Copernicus DEM, ~90 m) |
 
-### Deployment
-* **Public design showcase:** static build on **Firebase Hosting** (`npm run build:showcase`, no API keys in the bundle).
-* The original Cloud Run setup (`Dockerfile`, `nginx.conf`, `cloudbuild.yaml`) is still in the repo, but that deployment is no longer live.
+### Backend / services
+* **Firebase** Authentication + Firestore (optional account features) and **Firebase Hosting**
+* Optional AI via **OpenRouter** or the **Gemini API**
+
+### The model (`src/lib/vehicleProfiles.ts`, `src/config/greenDriveConfig.ts`)
+* Base consumption per vehicle type + climb energy `W = m·g·h` (engine efficiency applied) × a driving-efficiency factor.
+* Fuel prices: Jordan Ministry of Energy, May 2026 pricing decree. EV tariff: EMRC time-of-use. CO₂ factors: IPCC / DEFRA 2023, NEPCO grid intensity.
+
+---
+
+## ⚠️ Limitations (read this)
+
+* **No live traffic.** The free router has none, so durations are free-flow estimates and the app never claims traffic savings.
+* **Estimates, not measurements.** Consumption comes from a physics model with typical vehicle figures, not from your car's real data. Elevation is sampled roughly every 400 m from a ~90 m DEM, so very short rolling hills can be under-counted. If elevation can't be fetched, the card says so and assumes flat terrain.
+* **Public demo servers** (OSRM, Photon, Nominatim, Esri tiles) are fair-use. For heavy production traffic, self-host them or use a commercial provider.
+* The AI briefing is only as good as the numbers it is given; check them in the route cards.
+
+---
+
+## 🚀 Run Locally
+
+```bash
+git clone https://github.com/Humam-Taibeh/GreenDrive.git
+cd GreenDrive
+npm install
+cp .env.example .env.local   # all values are optional (see below)
+npm run dev                  # http://localhost:5173
+```
+
+The map, routing, elevation, calculator and guest mode work with **no keys at all**. Add keys to `.env.local` only for the optional parts:
+
+| Variable | Needed for |
+|---|---|
+| `VITE_OPENROUTER_API_KEY` (+ `VITE_OPENROUTER_MODEL`) or `VITE_GEMINI_API_KEY` | AI Eco-Copilot (otherwise a local summary is used) |
+| `VITE_FIREBASE_*` | Sign-in and saved places |
+
+> ⚠️ Everything prefixed `VITE_` is bundled into the public JavaScript. Never put a secret AI key in a build you publish; restrict it by domain or move calls to a server.
+
+| Script | What it does |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm run build` | Production build (`dist/`) |
+| `npm run lint` | ESLint |
+| `npm run build:showcase` | Static **design-only** build with no map, AI or Firebase (`.env.showcase`) |
+
+### Deploy (Firebase Hosting)
+
+```bash
+npm run build
+npx firebase deploy --only hosting --project greendrive-5574e
+```
+
+The original Cloud Run setup (`Dockerfile`, `nginx.conf`, `cloudbuild.yaml`) is still in the repo but is not the live deployment.
 
 ---
 
@@ -72,12 +134,11 @@ Full transparency on process: this was built by directing AI coding tools — **
 
 ## 🏁 For Judges / Reviewers
 
-> The public showcase covers step 1 only. Steps 2–4 need the full app running locally with your own AI key (see `.env.example`).
-
-1. View the landing page.
-2. Sign in and pick a vehicle type (EV, petrol, hybrid, or diesel).
-3. Enter a route with a big elevation change (e.g., Amman → Dead Sea).
-4. Click "More details via AI" for the Gemini-generated cost/savings breakdown.
+1. Open the [live demo](https://greendrive-5574e.web.app) and scroll the landing page (try the **Impact calculator**).
+2. Click **Start Mapping** — no sign-in needed.
+3. Click the map twice (or search) to set **A** and **B**, e.g. two points in Amman with different elevations.
+4. Compare the route cards, switch the vehicle type, and click a route to highlight it.
+5. Click **Ask AI** for the route briefing. Toggle **Arabic / dark / light** from the settings (gear icon).
 
 ---
 
@@ -88,5 +149,9 @@ Full transparency on process: this was built by directing AI coding tools — **
 * **[Natalia Al-Hajawi](https://github.com/silvercreeks14)** — Security & QA
 
 ---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE).
 
 [🏛️ Back to Main Profile](https://github.com/Humam-Taibeh)

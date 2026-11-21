@@ -547,3 +547,19 @@
 .gd-pin:hover .gd-pin-svg { transform: translateY(-3px); }
 .leaflet-marker-draggable { cursor: grab; }
 .leaflet-dragging .leaflet-marker-draggable { cursor: grabbing; }
+
+/* On small screens the planner is a bottom sheet, so the map credit moves to the top-left (still visible). */
+@media (max-width: 1023px) {
+  .gd-map .leaflet-bottom.leaflet-right {
+    top: 0;
+    bottom: auto;
+    right: auto;
+    left: 0;
+    max-width: calc(100% - 72px);
+  }
+  .gd-map .leaflet-control-attribution {
+    margin: 8px 0 0 8px;
+    font-size: 9px;
+    line-height: 1.3;
+  }
+}
