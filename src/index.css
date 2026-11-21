@@ -563,3 +563,13 @@
     line-height: 1.3;
   }
 }
+
+/* Arabic letters must stay connected: letter-spacing breaks the joins ("مستدامة" -> "مستد امة"). */
+html[dir='rtl'] * {
+  letter-spacing: 0 !important;
+}
+
+/* Monospace stacks have no Arabic glyphs; the fallback breaks joining. Use the page font in RTL. */
+html[dir='rtl'] .font-mono {
+  font-family: inherit;
+}

@@ -204,19 +204,19 @@ const RouteCard = memo(function RouteCard({
         <span className="text-2xl font-extrabold tabular-nums text-zinc-950 dark:text-white">{route.durationMin}</span>
         <span className="text-xs font-medium text-zinc-500 dark:text-white/50">{isArabic ? 'دقيقة' : 'min'}</span>
         <span className="mx-1 text-zinc-300 dark:text-white/20">·</span>
-        <span className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-white/75">{route.distanceKm.toFixed(1)} km</span>
+        <span className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-white/75">{route.distanceKm.toFixed(1)} {isArabic ? 'كم' : 'km'}</span>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Metric label={isEv ? (isArabic ? 'الطاقة' : 'Energy') : isArabic ? 'الوقود' : 'Fuel'} value={energy} unit={isEv ? 'kWh' : 'L'} />
-        <Metric label={isArabic ? 'التكلفة' : 'Cost'} value={stats.costJODStr} unit="JOD" />
-        <Metric label="CO₂" value={stats.co2Kg.toFixed(2)} unit="kg" />
+        <Metric label={isEv ? (isArabic ? 'الطاقة' : 'Energy') : isArabic ? 'الوقود' : 'Fuel'} value={energy} unit={isEv ? (isArabic ? 'ك.و.س' : 'kWh') : isArabic ? 'لتر' : 'L'} />
+        <Metric label={isArabic ? 'التكلفة' : 'Cost'} value={stats.costJODStr} unit={isArabic ? 'دينار' : 'JOD'} />
+        <Metric label="CO₂" value={stats.co2Kg.toFixed(2)} unit={isArabic ? 'كغ' : 'kg'} />
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-2">
         {route.ascentStatus === 'measured' ? (
           <p className="text-[11px] text-zinc-500 dark:text-white/45" dir="ltr">
-            ↑ {route.ascentM} m {isArabic ? 'صعود' : 'climb'}
+            ↑ {route.ascentM} {isArabic ? 'م صعود' : 'm climb'}
           </p>
         ) : (
           <p className="text-[11px] text-amber-600 dark:text-amber-300">
@@ -785,7 +785,7 @@ Provide a 2-3 sentence, high-accuracy briefing of its pros/cons for this Jordan 
                     {isArabic ? 'لو كررت هذه الرحلة يومياً (250 يوم عمل)' : 'If you drive this trip daily (250 working days)'}
                   </p>
                   <p className="mt-1 text-sm font-bold text-zinc-900 dark:text-white" dir="ltr">
-                    {yearly.jod} JOD · {yearly.co2} kg CO₂
+                    {yearly.jod} {isArabic ? 'دينار' : 'JOD'} · {yearly.co2} {isArabic ? 'كغ' : 'kg'} CO₂
                   </p>
                   <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-white/45">
                     {isArabic ? `يعادل امتصاص نحو ${yearly.trees} شجرة ناضجة سنوياً` : `Equal to what about ${yearly.trees} mature trees absorb per year`}

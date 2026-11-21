@@ -48,3 +48,12 @@ export const VEHICLE_PHYSICS = {
     electric: 18.0, // kWh/100km
   }
 }
+
+/** When the fuel/electricity prices above were last verified (first day they apply). */
+export const PRICES_EFFECTIVE_DATE = '2026-11-01'
+/** After this many days without an update the UI tells the user the prices may be out of date. */
+export const PRICES_STALE_AFTER_DAYS = 45
+
+export function priceAgeDays(now: Date = new Date()): number {
+  return Math.floor((now.getTime() - new Date(PRICES_EFFECTIVE_DATE).getTime()) / 86_400_000)
+}

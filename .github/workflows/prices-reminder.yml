@@ -1,0 +1,28 @@
+name: Monthly fuel-price check
+
+# Jordan's Fuel Pricing Committee announces prices on the last day of each month.
+# Prices are official data, so a person confirms them: this opens an issue with the exact steps.
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open the monthly update issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "${{ github.repository }}" \
+            --title "Update Jordan fuel prices for $(date +'%B %Y')" \
+            --body "The Fuel Pricing Committee announces prices at the end of each month. To update:
+          1. Read the decision on https://petra.gov.jo/en (search: Fuel Pricing Committee).
+          2. Edit src/config/greenDriveConfig.ts: PETROL90_PRICE_JOD, PETROL_PRICE_JOD, DIESEL_PRICE_JOD and PRICES_EFFECTIVE_DATE.
+          3. Run npm run build, then npx firebase deploy --only hosting --project greendrive-5574e.
+
+          The site shows a warning by itself when the prices are older than 45 days."

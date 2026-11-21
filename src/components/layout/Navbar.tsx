@@ -246,7 +246,8 @@ export function Navbar() {
             type="button"
             onClick={() => setSettingsOpen(true)}
             className={`hidden h-10 w-10 items-center justify-center rounded-xl border backdrop-blur-md sm:inline-flex ${border} ${isLight ? 'bg-black/5' : 'bg-white/5'} ${ink}`}
-            title="Settings Vault"
+            title={locale === "ar" ? "الإعدادات" : "Settings"}
+            aria-label={locale === "ar" ? "الإعدادات" : "Settings"}
           >
             <Settings className="h-4 w-4" />
           </button>
@@ -347,7 +348,7 @@ export function Navbar() {
                     setSettingsOpen(true)
                   }}
                 >
-                  Settings Vault
+                  {locale === "ar" ? "الإعدادات" : "Settings"}
                 </button>
               </li>
             </ul>

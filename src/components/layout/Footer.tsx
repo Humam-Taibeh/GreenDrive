@@ -24,6 +24,7 @@ export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
               { label: t('foot.about'), href: '#overview' },
               { label: t('foot.features'), href: '#features' },
               { label: t('foot.impact'), href: '#impact' },
+              { label: t('foot.sources'), href: '#sources' },
             ],
             [{ label: t('foot.contact'), href: '#contact' }],
             [{ label: t('foot.github'), href: SHOWCASE_REPO_URL }],

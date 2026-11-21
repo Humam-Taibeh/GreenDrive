@@ -1,10 +1,10 @@
-/** Output by Antigravity IDE */
 import { lazy, Suspense, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Hero } from '../components/sections/Hero'
 import { FeatureMatrix } from '../components/sections/FeatureMatrix'
 import { HowItWorks } from '../components/sections/HowItWorks'
 import { IntelligenceSection } from '../components/sections/IntelligenceSection'
+import { DataSources } from '../components/sections/DataSources'
 import { Footer } from '../components/layout/Footer'
 import type { FxControlProps } from '../components/layout/Footer'
 import { scrollToSectionByHash } from '../lib/scrollToSection'
@@ -65,6 +65,7 @@ export function LandingPage({ fxControl }: { fxControl: FxControlProps }) {
         <ImpactShowcase />
       )}
       <IntelligenceSection />
+      <DataSources />
       <Suspense fallback={null}>
         <TeamSection />
       </Suspense>
