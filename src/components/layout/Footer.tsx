@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
 import { handleInPageNavClick } from '../../lib/scrollToSection'
-import { DEMO_SHOWCASE, SHOWCASE_REPO_URL } from '../../config/showcase'
+import { SHOWCASE_REPO_URL } from '../../config/showcase'
 
 export interface FxControlProps {
   disabled: boolean
@@ -14,13 +14,12 @@ export interface FxControlProps {
 
 export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
   const m = useScrollMotionProps()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
 
   const cols = useMemo(
     () =>
-      DEMO_SHOWCASE
-        ? // Showcase: only links that lead somewhere real (no placeholder Terms / Case studies / generic social links).
-          [
+      // Only links that lead somewhere real (no placeholder Terms / Case studies / generic social links).
+      [
             [
               { label: t('foot.about'), href: '#overview' },
               { label: t('foot.features'), href: '#features' },
@@ -28,24 +27,7 @@ export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
             ],
             [{ label: t('foot.contact'), href: '#contact' }],
             [{ label: t('foot.github'), href: SHOWCASE_REPO_URL }],
-          ]
-        : [
-            [
-              { label: t('foot.about'), href: '#overview' },
-              { label: t('foot.features'), href: '#features' },
-              { label: t('foot.impact'), href: '#impact' },
-            ],
-            [
-              { label: t('foot.contact'), href: '#contact' },
-              { label: t('foot.cases'), href: '#process' },
-              { label: t('foot.terms'), href: '#intelligence' },
-            ],
-            [
-              { label: t('foot.github'), href: 'https://github.com/' },
-              { label: t('foot.insta'), href: 'https://instagram.com/' },
-              { label: t('foot.linkedin'), href: 'https://linkedin.com/' },
-            ],
-          ],
+      ],
     [t]
   )
 
@@ -100,9 +82,9 @@ export function Footer({ fxControl }: { fxControl?: FxControlProps }) {
               type="button"
               onClick={fxControl.onToggle}
               className="rounded-full border border-black/10 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-zinc-900 shadow-sm backdrop-blur-sm transition hover:border-toxic/50 hover:text-toxic dark:border-white/15 dark:bg-black/70 dark:text-white/85"
-              title={fxControl.autoDisabled ? 'Antigravity IDE: auto-disabled due to low FPS' : 'Antigravity IDE: toggle visual effects'}
+              title={fxControl.autoDisabled ? 'Visual effects were turned off automatically to keep things smooth' : 'Toggle visual effects'}
             >
-              {fxControl.disabled ? 'Enable FX' : 'Disable FX'}
+              {fxControl.disabled ? (locale === 'ar' ? 'تفعيل المؤثرات' : 'Enable effects') : locale === 'ar' ? 'تعطيل المؤثرات' : 'Disable effects'}
             </button>
           )}
         </div>

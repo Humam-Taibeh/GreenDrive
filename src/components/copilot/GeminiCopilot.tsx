@@ -67,8 +67,7 @@ export interface GeminiCopilotProps {
 export function GeminiCopilot({ 
   isOpen: externalOpen, 
   onOpenChange, 
-  selectedRoute: _selectedRoute, 
-  destination,
+    destination,
   hasActiveRoute,
   activeRouteData,
   isDark: externalIsDark,
@@ -178,7 +177,7 @@ export function GeminiCopilot({
 
   return (
     <LazyMotion features={domMax} strict>
-      <div className="pointer-events-none fixed bottom-28 end-4 z-[500] flex flex-col items-end sm:bottom-32 sm:end-6">
+      <div className="pointer-events-none fixed bottom-[calc(58svh+1rem)] end-4 z-[1100] flex flex-col items-end lg:bottom-10 lg:end-6">
         <AnimatePresence>
           {open && (
             <m.div

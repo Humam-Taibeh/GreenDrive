@@ -57,7 +57,7 @@ function buildDefaultProfile(u: User): UserProfileDoc {
     vehicle = localStorage.getItem('gd-vehicle') || 'petrol'
     const sc = localStorage.getItem('gd-charge')
     if (sc) charge = parseInt(sc)
-  } catch {}
+  } catch { /* storage unavailable */ }
 
   return {
     uid: u.uid,
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const ref = doc(db, 'users', user.uid)
       await setDoc(ref, { vehicleType: v, updatedAt: serverTimestamp() }, { merge: true })
-    } catch (e) {
+    } catch {
       console.warn('[AuthContext] Cloud sync failed, using local persistence.')
     }
   }, [user, cloudHealthy])
@@ -191,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const ref = doc(db, 'users', user.uid)
       await setDoc(ref, { currentChargePercent: level, updatedAt: serverTimestamp() }, { merge: true })
-    } catch (e) {
+    } catch {
       console.warn('[AuthContext] Cloud sync failed, using local persistence.')
     }
   }, [user, cloudHealthy])
@@ -220,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferences: prefs, 
         updatedAt: serverTimestamp() 
       }, { merge: true })
-    } catch (e) {
+    } catch {
       console.warn('[AuthContext] Pref sync failed.')
     }
   }, [user, cloudHealthy])

@@ -174,8 +174,8 @@ export function calculateTrafficWaste(
   const rate = idleRates[vehicleType] || 1.2
   const wastedVolume = (trafficDelayMin / 60) * rate
   
-  const prices = { petrol: 1.000, diesel: 0.790, hybrid: 1.310, electric: 0.118 }
-  const price = prices[vehicleType] || 1.000
+  const p = VEHICLE_PROFILES[vehicleType]
+  const price = p.fuelPriceJOD ?? p.electricityPriceJOD ?? 1.0
   const wastedJod = wastedVolume * price
 
   return {

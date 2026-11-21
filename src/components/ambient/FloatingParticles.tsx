@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { AMBIENT_CYCLE_SEC } from '../../lib/ambientCycle'
 
 /** Fewer DOM writes per frame — flocking math unchanged, density slightly lower */
-const COUNT = 38
+const COUNT = 24
 const TWO_PI = Math.PI * 2
 const CYCLE_OMEGA = TWO_PI / AMBIENT_CYCLE_SEC
 
@@ -94,8 +94,13 @@ export function FloatingParticles({
   useEffect(() => {
     if (reducedMotion) return
     let id = 0
+    let last = 0
     const loop = (now: number) => {
-      frame(now / 1000)
+      // ~30fps is plenty for slow ambient drift and keeps the main thread free while scrolling
+      if (now - last >= 33) {
+        last = now
+        frame(now / 1000)
+      }
       id = requestAnimationFrame(loop)
     }
     id = requestAnimationFrame(loop)

@@ -20,8 +20,15 @@ export interface RouteOption {
   co2Kg: number
   savingsPercent: number
   polyline?: Array<{ lat: number; lng: number }>
-  /** Net elevation gain in metres — used for terrain-aware scoring */
+  /**
+   * Total climb in metres, summed from real elevation samples (Open-Meteo) along the polyline.
+   * 0 when `ascentStatus === 'unavailable'` (calculations then assume flat terrain).
+   */
   ascentM?: number
+  /** 'measured' = real elevation data; 'unavailable' = Elevation API failed/blocked; undefined = not applicable (walking). */
+  ascentStatus?: 'measured' | 'unavailable'
+  /** Number of elevation samples behind `ascentM` (only when measured). */
+  ascentSamples?: number
   /** Flag for mathematical winner of fuel economy */
   isCheapest?: boolean
 }

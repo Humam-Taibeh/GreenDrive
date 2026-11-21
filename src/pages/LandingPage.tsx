@@ -16,8 +16,8 @@ import { ImpactShowcase } from '../components/showcase/ShowcaseBlocks'
 const LiveImpact = import.meta.env.VITE_DEMO_MODE === 'showcase'
   ? null
   : lazy(async () => {
-      const m = await import('../components/sections/LiveImpact')
-      return { default: m.LiveImpact }
+      const m = await import('../components/sections/ImpactEstimator')
+      return { default: m.ImpactEstimator }
     })
 
 const TeamSection = lazy(async () => {
