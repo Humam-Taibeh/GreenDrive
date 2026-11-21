@@ -1,7 +1,7 @@
 /**
  * Vehicle emission & efficiency profiles — scientifically grounded values.
  *
- * ✅ Prices: Jordan Ministry of Energy, May 2026 official decree
+ * ✅ Prices: Jordan Ministry of Energy, November 2026 official decision
  * ✅ CO₂:    IPCC/DEFRA 2023
  * ✅ EV:     NEPCO 2023 grid intensity + EMRC TOU average tariff
  */
@@ -38,7 +38,7 @@ export const VEHICLE_PROFILES: Record<VehicleType, VehicleProfile> = {
     kWhPerKm: null,
     co2PerKWh: null,
     baseLPer100km: VEHICLE_PHYSICS.BASE_EFFICIENCY.petrol,
-    // ✅ Petrol 90 — most common in Jordan (1.000 JOD/L, May 2026)
+    // ✅ Petrol 90 — most common in Jordan (1.080 JOD/L, Nov 2026)
     fuelPriceJOD: JORDAN_CONSTANTS.PETROL90_PRICE_JOD,
     electricityPriceJOD: null,
   },
@@ -50,7 +50,7 @@ export const VEHICLE_PROFILES: Record<VehicleType, VehicleProfile> = {
     kWhPerKm: null,
     co2PerKWh: null,
     baseLPer100km: VEHICLE_PHYSICS.BASE_EFFICIENCY.diesel,
-    // ✅ Diesel — 0.790 JOD/L (May 2026)
+    // ✅ Diesel — 0.900 JOD/L (Nov 2026)
     fuelPriceJOD: JORDAN_CONSTANTS.DIESEL_PRICE_JOD,
     electricityPriceJOD: null,
   },
@@ -62,8 +62,8 @@ export const VEHICLE_PROFILES: Record<VehicleType, VehicleProfile> = {
     kWhPerKm: null,
     co2PerKWh: null,
     baseLPer100km: VEHICLE_PHYSICS.BASE_EFFICIENCY.hybrid,
-    // ✅ Petrol 95 — hybrids typically spec higher octane (1.310 JOD/L, May 2026)
-    fuelPriceJOD: JORDAN_CONSTANTS.PETROL_PRICE_JOD,
+    // ✅ Petrol 90 — same fuel as the petrol car, so the comparison is fair (1.080 JOD/L, Nov 2026)
+    fuelPriceJOD: JORDAN_CONSTANTS.PETROL90_PRICE_JOD,
     electricityPriceJOD: null,
   },
   electric: {
@@ -91,7 +91,7 @@ export const VEHICLE_PROFILES: Record<VehicleType, VehicleProfile> = {
 export function computeTripEmissions(
   distanceKm: number,
   ascentM: number,
-  efficiencyFactor: number,   // 0.72 (fast/aggressive) → 0.92 (eco/smooth)
+  _efficiencyFactor: number, // kept for API compatibility; consumption = base + climb energy
   vehicle: VehicleType,
 ): { co2Kg: number; fuelLiters: number | null; costJOD: number; costJODStr: string; label: string } {
   const profile = VEHICLE_PROFILES[vehicle]
@@ -113,9 +113,7 @@ export function computeTripEmissions(
     // EV: energy in kWh. 1 kWh = 3.6 MJ. Ascent penalty at 85% motor efficiency.
     const elevationKWh = (workMJ / 3.6) / 0.85
     const baseKWh      = safeDist * profile.kWhPerKm!
-    // efficiencyFactor range: 0.72→0.92 maps to ×(1.12 - eff×0.22) = ×1.02→×0.92
-    // This ONLY scales energy consumed, not price.
-    const totalKWh = Math.max(baseKWh, (baseKWh + elevationKWh) * (1.12 - efficiencyFactor * 0.22))
+    const totalKWh = baseKWh + elevationKWh
 
     co2Kg     = Number((totalKWh * profile.co2PerKWh!).toFixed(4))
     fuelLiters = null
@@ -128,10 +126,8 @@ export function computeTripEmissions(
     const engineEfficiency  = 0.25
     const elevationLiters   = (workMJ / fuelEnergyDensity) / engineEfficiency
     const baseLiters        = safeDist * (profile.baseLPer100km! / 100)
-    // ✅ efficiencyFactor multiplier applied ONLY to volume consumption here:
-    const rawLiters   = (baseLiters + elevationLiters) * (1.12 - efficiencyFactor * 0.22)
-    // ZERO-FUEL GUARD: never return less than flat base consumption
-    const totalLiters = Math.max(baseLiters, rawLiters)
+    // Flat-road base consumption + the extra energy needed to climb.
+    const totalLiters = baseLiters + elevationLiters
 
     co2Kg     = Number((totalLiters * profile.co2PerLitre!).toFixed(4))
     fuelLiters = Number(totalLiters.toFixed(3))
@@ -148,8 +144,7 @@ export function computeTripEmissions(
       Vehicle:          vehicle,
       'Distance (km)':  safeDist,
       'Ascent (m)':     ascentM,
-      'Eff. Factor':    efficiencyFactor,
-      'Volume (L/kWh)': fuelLiters ?? label,
+            'Volume (L/kWh)': fuelLiters ?? label,
       'Price (JOD/unit)': profile.fuelPriceJOD ?? profile.electricityPriceJOD,
       'Exact Cost (JOD)': costJODStr,
     })

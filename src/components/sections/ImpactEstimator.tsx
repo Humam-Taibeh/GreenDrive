@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
-import { computeTripEmissions, projectYearlyImpact } from '../../lib/vehicleProfiles'
+import { computeTripEmissions } from '../../lib/vehicleProfiles'
 import type { VehicleType } from '../../lib/vehicleProfiles'
 import { DRIVING_EFFICIENCY } from '../../lib/useDirectionsRoutes'
 
@@ -20,6 +20,7 @@ const VEHICLES: { id: VehicleType; en: string; ar: string }[] = [
 ]
 
 const WORK_DAYS = 250
+const KG_CO2_PER_TREE_YEAR = 21
 
 function Slider({
   id,
@@ -91,17 +92,16 @@ export function ImpactEstimator() {
   const [gain, setGain] = useState(8)
 
   const r = useMemo(() => {
-    const trip = computeTripEmissions(km, 0, DRIVING_EFFICIENCY, vehicle)
-    const energyDay = vehicle === 'electric' ? parseFloat(trip.label) : trip.fuelLiters ?? 0
-    const yearly = projectYearlyImpact(trip.costJOD, trip.co2Kg)
+    // Computed over the whole year at once so per-trip rounding never gets multiplied by 250.
+    const year = computeTripEmissions(km * WORK_DAYS, 0, DRIVING_EFFICIENCY, vehicle)
     const k = gain / 100
     return {
-      energy: energyDay * WORK_DAYS,
-      jod: trip.costJOD * WORK_DAYS,
-      co2: trip.co2Kg * WORK_DAYS,
-      trees: yearly.trees,
-      saveJod: trip.costJOD * WORK_DAYS * k,
-      saveCo2: trip.co2Kg * WORK_DAYS * k,
+      energy: vehicle === 'electric' ? parseFloat(year.label) : year.fuelLiters ?? 0,
+      jod: year.costJOD,
+      co2: year.co2Kg,
+      trees: Math.round(year.co2Kg / KG_CO2_PER_TREE_YEAR),
+      saveJod: year.costJOD * k,
+      saveCo2: year.co2Kg * k,
     }
   }, [km, vehicle, gain])
 

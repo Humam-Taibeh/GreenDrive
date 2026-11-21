@@ -2,21 +2,21 @@
  * GreenDrive Secure Config — Jordan-specific constants.
  * 
  * ✅ VERIFIED SOURCE: Jordan Ministry of Energy & Mineral Resources
- *    Oil Products Pricing Committee — Official May 2026 Pricing Decree
+ *    Oil Products Pricing Committee — Official November 2026 decision (effective 1 Nov 2026)
  * ✅ EV TARIFF: EMRC Time-of-Use tariff (Jordan Times, 2024–2026)
  *
- * Petrol 90:  1.000 JOD/L  (official May 2026)
- * Petrol 95:  1.310 JOD/L  (official May 2026)
- * Diesel:     0.790 JOD/L  (official May 2026)
+ * Petrol 90:  1.080 JOD/L  (official Nov 2026)
+ * Petrol 95:  1.375 JOD/L  (official Nov 2026)
+ * Diesel:     0.900 JOD/L  (official Nov 2026)
  * EV peak:    0.160 JOD/kWh (17:00–23:00)
  * EV partial: 0.118 JOD/kWh (14:00–17:00 & 23:00–05:00)
  * EV off-peak:0.108 JOD/kWh (05:00–14:00) ← most common for daytime driving
  */
 export const JORDAN_CONSTANTS = {
-  // ── Fuel Prices (JOD per unit) ── May 2026 Official Decree ──────────────
-  PETROL90_PRICE_JOD:  1.000,  // Petrol 90 Octane — most common in Jordan
-  PETROL_PRICE_JOD:    1.310,  // Petrol 95 Octane — performance / hybrid
-  DIESEL_PRICE_JOD:    0.790,  // Diesel
+  // ── Fuel Prices (JOD per unit) ── Nov 2026 Official Decision ──────────────
+  PETROL90_PRICE_JOD:  1.080,  // Petrol 90 Octane — most common in Jordan
+  PETROL_PRICE_JOD:    1.375,  // Petrol 95 Octane — performance / hybrid
+  DIESEL_PRICE_JOD:    0.900,  // Diesel
 
   // ── EMRC EV Time-of-Use Tariff (fils → JOD, confirmed 2024–2026) ────────
   EV_KWH_COST_JOD:       0.118,  // Partial-peak (representative daytime average)

@@ -322,10 +322,10 @@ UNIT DIRECTIVE (ABSOLUTE RULE):
 Vehicle: ${vt} → unit: ${fuelUnit}. NEVER output "L or kWh". Use ONLY "${fuelUnit}".
 =========================================================
 
-JORDAN OFFICIAL PRICES — May 2026 (✅ LOCKED):
-- Petrol 90: 1.000 JOD/L  | CO2: 2.31 kg/L
-- Petrol 95: 1.310 JOD/L  | CO2: 2.31 kg/L  [hybrid]
-- Diesel:    0.790 JOD/L  | CO2: 2.68 kg/L
+JORDAN OFFICIAL PRICES — November 2026 (✅ LOCKED):
+- Petrol 90: 1.080 JOD/L  | CO2: 2.31 kg/L
+- Petrol 95: 1.375 JOD/L  | CO2: 2.31 kg/L
+- Diesel:    0.900 JOD/L  | CO2: 2.68 kg/L
 - EV Grid:   0.118 JOD/kWh (partial-peak) | 0.108 off-peak | CO2: 0.61 kg/kWh
 
 ACTIVE ROUTE: ${ctx?.hasActiveRoute ? `${dest} — ${ctx.activeRouteData?.distance}, ${ctx.activeRouteData?.duration}` : 'None'}.

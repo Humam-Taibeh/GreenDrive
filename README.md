@@ -75,8 +75,8 @@ Every route card shows time, distance, fuel (or kWh), cost in JOD, CO₂, and th
 * Optional AI via **OpenRouter** or the **Gemini API**
 
 ### The model (`src/lib/vehicleProfiles.ts`, `src/config/greenDriveConfig.ts`)
-* Base consumption per vehicle type + climb energy `W = m·g·h` (engine efficiency applied) × a driving-efficiency factor.
-* Fuel prices: Jordan Ministry of Energy, May 2026 pricing decree. EV tariff: EMRC time-of-use. CO₂ factors: IPCC / DEFRA 2023, NEPCO grid intensity.
+* Base consumption per vehicle type + climb energy `W = m·g·h` (÷ engine / motor efficiency).
+* Fuel prices: Jordan Fuel Pricing Committee, November 2026 decision (90: 1.080, 95: 1.375, diesel: 0.900 JOD/L). EV tariff: EMRC time-of-use. CO₂ factors: IPCC / DEFRA 2023, NEPCO grid intensity.
 
 ---
 
@@ -146,7 +146,7 @@ Full transparency on process: this was built by directing AI coding tools — **
 
 * **[Humam Taibeh](https://github.com/Humam-Taibeh)** — AI-directed development & architecture
 * **[Heba Taibeh](https://github.com/HebaZakwan)** — Product Strategy & UX Design
-* **[Natalia Al-Hajawi](https://github.com/silvercreeks14)** — Security & QA
+* **[Natalia Alhijawi](https://github.com/silvercreeks14)** — Security & QA
 
 ---
 
