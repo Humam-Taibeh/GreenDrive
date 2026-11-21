@@ -37,10 +37,10 @@ export class ErrorBoundary extends Component<Props, State> {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.876c1.27 0 2.06-1.323 1.47-2.343L14.47 5.343C13.87 4.323 12.38 4.323 11.78 5.343L3.53 16.657C2.94 17.677 3.73 19 5 19z" />
               </svg>
             </div>
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-toxic/90">Antigravity IDE</p>
-            <h1 className="mt-3 font-heading text-3xl font-extrabold tracking-tight sm:text-4xl">Intelligence Interrupt</h1>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-toxic/90">GreenDrive</p>
+            <h1 className="mt-3 font-heading text-3xl font-extrabold tracking-tight sm:text-4xl">Something went wrong</h1>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/65 sm:text-base">
-              A transient synchronization issue interrupted the GreenDrive intelligence pipeline. You can safely restart this session.
+              An unexpected error interrupted the page. Your data is safe — please reload to continue.
             </p>
             <button
               onClick={() => window.location.reload()}

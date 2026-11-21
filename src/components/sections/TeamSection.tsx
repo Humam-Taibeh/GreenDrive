@@ -1,6 +1,6 @@
 /** Output by Antigravity IDE */
 import { useMemo, useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useScrollMotionProps } from '../../lib/motion'
 import { useLocale } from '../../contexts/LocaleContext'
 import { DEMO_SHOWCASE } from '../../config/showcase'
@@ -49,7 +49,6 @@ export function TeamSection() {
   const m = useScrollMotionProps()
   const { t, locale } = useLocale()
   const sectionRef = useRef<HTMLElement | null>(null)
-  const teamActive = useInView(sectionRef, { margin: '-40% 0px -40% 0px', amount: 0.2 })
 
   const team: TeamMemberExtended[] = useMemo(
     () =>
@@ -126,17 +125,6 @@ export function TeamSection() {
               >
                 {member.role}
               </motion.p>
-              {/* "Founder" badge is not shown in the showcase (titles there are plain: Developer / Team member). */}
-              {!DEMO_SHOWCASE && (['humam', 'heba', 'natalia'] as const).includes(member.id as 'humam' | 'heba' | 'natalia') && (
-                <span
-                  className={`mt-3 inline-flex w-fit rounded-full border px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] transition ${teamActive
-                      ? 'border-toxic/70 text-toxic shadow-[0_0_22px_-6px_rgba(54,255,151,0.95)] [background-image:linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.04)),repeating-linear-gradient(115deg,rgba(255,255,255,0.09)_0px,rgba(255,255,255,0.09)_2px,rgba(255,255,255,0.02)_2px,rgba(255,255,255,0.02)_5px)]'
-                      : 'border-white/20 text-white/70 [background-image:linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.03)),repeating-linear-gradient(115deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_2px,rgba(255,255,255,0.01)_2px,rgba(255,255,255,0.01)_5px)]'
-                    }`}
-                >
-                  {locale === 'ar' ? 'المؤسسون' : 'Founder'}
-                </span>
-              )}
               {member.university && (
                 <p className="mt-1 text-xs font-medium text-zinc-500 dark:text-white/40">
                   {member.university}

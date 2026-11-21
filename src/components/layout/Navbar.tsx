@@ -1,5 +1,5 @@
 /** Output by Antigravity IDE — landing-only world-class nav: glass on scroll, IO scroll-spy, layoutId underline */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence, LayoutGroup, useReducedMotion } from 'framer-motion'
 import { BrandLogo } from '../brand/BrandLogo'
@@ -10,7 +10,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import { firebaseConfigured } from '../../firebase/config'
 import { handleInPageNavClick } from '../../lib/scrollToSection'
 import { prefetchMapRoute } from '../../lib/prefetchMapRoute'
-import { DEMO_SHOWCASE } from '../../config/showcase'
 import { Settings } from 'lucide-react'
 
 /** Minimal nav labels mapped to sections */
@@ -31,25 +30,12 @@ const ELASTIC_SNAP = { type: 'spring' as const, stiffness: 520, damping: 34, mas
 export function Navbar() {
   const [open, setOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
   const [scrolled, setScrolled] = useState(false)
-  const [simulationMode, setSimulationMode] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('gd-simulation-mode') === '1'
-    } catch {
-      return false
-    }
-  })
-  const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>(() => {
-    try {
-      return localStorage.getItem('gd-unit-system') === 'imperial' ? 'imperial' : 'metric'
-    } catch {
-      return 'metric'
-    }
-  })
-  const [vehicle, setVehicle] = useState<'petrol' | 'hybrid' | 'electric'>(() => {
+  const [vehicle, setVehicle] = useState<'petrol' | 'diesel' | 'hybrid' | 'electric'>(() => {
     try {
       const saved = localStorage.getItem('gd-vehicle')
-      return saved === 'hybrid' || saved === 'electric' ? saved : 'petrol'
+      return saved === 'hybrid' || saved === 'electric' || saved === 'diesel' ? saved : 'petrol'
     } catch {
       return 'petrol'
     }
@@ -67,12 +53,12 @@ export function Navbar() {
   const { user, signOut, profile, updateVehicleType, updateChargeLevel, updatePreferences } = useAuth()
   const reduceMotion = useReducedMotion()
   const [activeSection, setActiveSection] = useState<string>(NAV_SECTION_HASHES[0] ?? '#overview')
-  const startPath = DEMO_SHOWCASE || user ? '/map' : '/auth'
+  const startPath = '/map' // guests can use the planner; an account is optional
 
   // Sync vehicle type from profile if logged in
   useEffect(() => {
     if (profile?.vehicleType) {
-      setVehicle(profile.vehicleType as 'petrol' | 'hybrid' | 'electric')
+      setVehicle(profile.vehicleType as 'petrol' | 'diesel' | 'hybrid' | 'electric')
     }
     if (profile?.currentChargePercent !== undefined) {
       setCharge(profile.currentChargePercent)
@@ -120,26 +106,24 @@ export function Navbar() {
 
     init()
 
-    const mut = new MutationObserver(() => {
-      init()
-    })
-    mut.observe(document.body, { childList: true, subtree: true })
+    // Lazy sections (impact / team) mount after first paint: re-check a few times, then stop observing the DOM.
+    let tries = 0
+    const retry = window.setInterval(() => {
+      tries += 1
+      const missing = NAV_SECTION_HASHES.some((h) => !document.querySelector(h))
+      if (!missing || tries >= 10) {
+        window.clearInterval(retry)
+        init()
+      }
+    }, 400)
 
     return () => {
+      window.clearInterval(retry)
       observer?.disconnect()
-      mut.disconnect()
     }
   }, [])
 
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSettingsOpen(false)
-    }
-    window.addEventListener('keydown', onEsc)
-    return () => window.removeEventListener('keydown', onEsc)
-  }, [])
-
-  const selectVehicle = (v: 'petrol' | 'hybrid' | 'electric') => {
+  const selectVehicle = (v: 'petrol' | 'diesel' | 'hybrid' | 'electric') => {
     setVehicle(v)
     try {
       localStorage.setItem('gd-vehicle', v)
@@ -165,27 +149,6 @@ export function Navbar() {
     }
   }
 
-  const toggleSimulationMode = () => {
-    setSimulationMode((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem('gd-simulation-mode', next ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-      return next
-    })
-  }
-
-  const selectUnitSystem = (u: 'metric' | 'imperial') => {
-    setUnitSystem(u)
-    try {
-      localStorage.setItem('gd-unit-system', u)
-    } catch {
-      /* ignore */
-    }
-  }
-
   const selectLocale = (l: any) => {
     setLocale(l)
     if (user) void updatePreferences({ locale: l })
@@ -200,7 +163,7 @@ export function Navbar() {
     <header
       className={`fixed top-0 left-0 right-0 z-[200] w-full pt-[env(safe-area-inset-top,0px)] transition-[background-color,backdrop-filter,box-shadow,border-color] duration-300 ease-out ${
         scrolled
-          ? `glass-nav shadow-[0_24px_80px_-48px_rgba(54,255,151,0.2)] ${isLight ? 'bg-white/50' : ''}`
+          ? `glass-nav shadow-[0_24px_80px_-48px_rgba(54,255,151,0.2)] ${isLight ? 'bg-white/92' : ''}`
           : 'border-b border-transparent bg-transparent shadow-none [--tw-backdrop-blur:0] [backdrop-filter:none] [-webkit-backdrop-filter:none]'
       }`}
     >
@@ -395,15 +358,11 @@ export function Navbar() {
         open={settingsOpen}
         locale={locale}
         preference={preference}
-        simulationMode={simulationMode}
-        unitSystem={unitSystem}
         vehicle={vehicle}
         currentCharge={charge}
         user={user}
-        onClose={() => setSettingsOpen(false)}
+        onClose={closeSettings}
         onSetPreference={selectTheme}
-        onToggleSimulationMode={toggleSimulationMode}
-        onSetUnitSystem={selectUnitSystem}
         onSetLocale={selectLocale}
         onSetVehicle={selectVehicle}
         onSetCharge={selectCharge}

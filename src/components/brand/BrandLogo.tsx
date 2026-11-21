@@ -35,6 +35,7 @@ export function BrandLogo({
   return (
     <Link
       to={to}
+      dir="ltr"
       className={`group flex items-center gap-2.5 sm:gap-3 ${className}`}
       aria-label="GreenDrive home"
       onClick={(e) => {

@@ -2,8 +2,7 @@
  * useReverseGeocode — converts lat/lng to a human-readable place name.
  *
  * Strategy:
- *  1. Try Google Geocoding API (if Maps API key is available in window.google)
- *  2. Fallback: Nominatim (OpenStreetMap) — free, no key required, CORS-friendly
+ *  Nominatim (OpenStreetMap) — free, no key required, CORS-friendly
  *
  * Returns the "short" address (neighbourhood + city) for display.
  */
@@ -41,26 +40,8 @@ async function nominatimReverse(lat: number, lng: number): Promise<string> {
   return data.display_name?.split(',').slice(0, 2).join(',').trim() ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`
 }
 
-/** Google Geocoding reverse geocode (preferred when Maps is loaded) */
-async function googleReverse(lat: number, lng: number, apiKey: string): Promise<string> {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${encodeURIComponent(apiKey)}&result_type=neighborhood|sublocality|locality`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error('google geocode failed')
-  const data = await res.json() as {
-    results: Array<{ formatted_address: string; address_components: Array<{ long_name: string; types: string[] }> }>
-    status: string
-  }
-  if (data.status !== 'OK' || !data.results[0]) throw new Error('no result')
-  const comps = data.results[0].address_components
-  const neighbourhood = comps.find((c) => c.types.includes('neighborhood') || c.types.includes('sublocality_level_1'))?.long_name
-  const city = comps.find((c) => c.types.includes('locality'))?.long_name
-  if (neighbourhood && city) return `${neighbourhood}, ${city}`
-  return data.results[0].formatted_address.split(',').slice(0, 2).join(',').trim()
-}
-
 export function useReverseGeocode() {
   const [loading, setLoading] = useState(false)
-  const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim()
 
   const resolve = useCallback(
     async (lat: number, lng: number): Promise<GeoResult> => {
@@ -68,23 +49,16 @@ export function useReverseGeocode() {
       try {
         let display: string
         try {
-          if (apiKey) {
-            display = await googleReverse(lat, lng, apiKey)
-          } else {
-            display = await nominatimReverse(lat, lng)
-          }
+          display = await nominatimReverse(lat, lng)
         } catch {
-          // last resort fallback
-          display = await nominatimReverse(lat, lng).catch(
-            () => `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-          )
+          display = `${lat.toFixed(5)}, ${lng.toFixed(5)}`
         }
         return { display, full: display, lat, lng }
       } finally {
         setLoading(false)
       }
     },
-    [apiKey],
+    [],
   )
 
   return { resolve, loading }

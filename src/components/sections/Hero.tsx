@@ -5,7 +5,6 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { m, useReducedMotion } from 'framer-motion'
 import { useLocale } from '../../contexts/LocaleContext'
-import { useAuth } from '../../contexts/AuthContext'
 import { prefetchMapRoute } from '../../lib/prefetchMapRoute'
 import { scrollToSectionByHash } from '../../lib/scrollToSection'
 import { DEMO_SHOWCASE } from '../../config/showcase'
@@ -16,8 +15,7 @@ const ease = [0.16, 1, 0.3, 1] as const
 export function Hero() {
   const { t } = useLocale()
   const reduce = useReducedMotion()
-  const { user } = useAuth()
-  const startPath = DEMO_SHOWCASE || user ? '/map' : '/auth'
+  const startPath = '/map' // guests can use the planner; an account is optional
 
   const container = useMemo(
     () => ({
@@ -48,8 +46,6 @@ export function Hero() {
     scrollToSectionByHash('#intelligence')
   }
 
-  const layerStyle = { willChange: 'transform, opacity' as const, transform: 'translateZ(0)' }
-
   return (
     <section
       id="overview"
@@ -64,11 +60,10 @@ export function Hero() {
           initial="hidden"
           animate="visible"
           className="max-w-5xl"
-          style={{ ...layerStyle, isolation: 'isolate' }}
+          style={{ isolation: 'isolate' }}
         >
           <m.p
             variants={item}
-            style={layerStyle}
             className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-toxic sm:text-sm"
           >
             {t('hero.kicker')}
@@ -76,29 +71,27 @@ export function Hero() {
           <m.h1
             variants={item}
             className="hero-title-pop heading-eco-neon font-heading mt-6 text-[3.7rem] font-extrabold leading-[1] tracking-tight text-zinc-950 sm:mt-8 sm:text-[4.4rem] sm:leading-[0.96] lg:mt-10 lg:text-[5.35rem] xl:text-[6rem] toxic-glow-text dark:text-white"
-            style={{ ...layerStyle, fontWeight: 800 }}
+            style={{ fontWeight: 800 }}
           >
             {t('hero.title')}
           </m.h1>
           <m.p
             variants={item}
-            style={layerStyle}
             className="mt-10 max-w-2xl text-lg leading-relaxed text-zinc-800 sm:text-xl lg:mt-12 lg:text-2xl lg:leading-relaxed dark:text-white/72"
           >
             {t('hero.sub')}
           </m.p>
           <m.div
             variants={item}
-            style={layerStyle}
             className="mt-14 flex flex-col gap-4 sm:mt-16 sm:flex-row sm:items-center lg:mt-20"
           >
-            <div className="relative inline-flex rounded-full">
+            <div className="relative flex w-full rounded-full sm:inline-flex sm:w-auto">
               <span className="absolute -inset-1 rounded-full bg-toxic/25 blur-xl" aria-hidden />
               <Link
                 to={startPath}
                 onMouseEnter={prefetchMapRoute}
                 onFocus={prefetchMapRoute}
-                className="btn-primary-toxic relative inline-flex items-center justify-center rounded-full bg-toxic px-10 py-4 text-base font-extrabold text-onyx shadow-[0_0_40px_-4px_rgba(54,255,151,0.75)] transition hover:bg-white hover:shadow-[0_0_48px_-4px_rgba(255,255,255,0.45)]"
+                className="btn-primary-toxic relative inline-flex w-full items-center justify-center rounded-full bg-toxic px-10 py-4 sm:w-auto text-base font-extrabold text-onyx shadow-[0_0_40px_-4px_rgba(54,255,151,0.75)] transition hover:bg-white hover:shadow-[0_0_48px_-4px_rgba(255,255,255,0.45)]"
               >
                 {t('hero.ctaMap')}
               </Link>
@@ -112,7 +105,7 @@ export function Hero() {
             </button>
           </m.div>
           {DEMO_SHOWCASE && (
-            <m.div variants={item} style={layerStyle}>
+            <m.div variants={item}>
               <ShowcasePill />
             </m.div>
           )}

@@ -64,8 +64,8 @@ export function FeatureCard({ data }: { data: FeatureCardData }) {
     tiltRaf.current = requestAnimationFrame(() => {
       tiltRaf.current = 0
       const { px, py } = tiltPending.current
-      ry.set(-px * 14)
-      rx.set(py * 14)
+      ry.set(-px * 8)
+      rx.set(py * 8)
     })
   }
 
@@ -83,7 +83,6 @@ export function FeatureCard({ data }: { data: FeatureCardData }) {
         rotateX: reduce ? 0 : srx,
         rotateY: reduce ? 0 : sry,
         transformPerspective: 1200,
-        transformStyle: 'preserve-3d',
       }}
       onMouseMove={onMove}
       onMouseLeave={onLeave}

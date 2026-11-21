@@ -54,7 +54,7 @@ Using the **Gemini 1.5 API**, GreenDrive includes an on-demand "AI Eco-Coach" ca
 * **RTL-first**: English and Arabic UI support via Tailwind logical properties
 
 ### Mapping & Backend
-* **Google Maps SDK & Elevation API** for live elevation data and the `mgh` calculation
+* **Leaflet + OpenStreetMap**, **OSRM** routing and **Open-Meteo** elevation (all free, no API key) for real routes and the `mgh` calculation
 * Per-vehicle consumption matrices for petrol, diesel, hybrid, and EV
 * **Firebase** for authentication and real-time data sync
 
@@ -72,7 +72,7 @@ Full transparency on process: this was built by directing AI coding tools — **
 
 ## 🏁 For Judges / Reviewers
 
-> The public showcase covers step 1 only. Steps 2–4 need the full app running locally with your own Google Maps and AI keys (see `.env.example`).
+> The public showcase covers step 1 only. Steps 2–4 need the full app running locally with your own AI key (see `.env.example`).
 
 1. View the landing page.
 2. Sign in and pick a vehicle type (EV, petrol, hybrid, or diesel).
